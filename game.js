@@ -1730,7 +1730,7 @@ function spawnEnemy(type) {
   enemy.maxHp = adjustedHp;
   enemy.speed = adjustedSpeed;
   enemy.baseSpeed = adjustedSpeed;
-  enemy.reward = def.reward;
+  enemy.reward = Math.round(def.reward * (diffSettings.enemyRewardMultiplier || 1.0));
   enemy.color = def.color;
   enemy.size = def.size;
   enemy.score = def.score;
@@ -2772,7 +2772,15 @@ let prevWavePreviewKey = -2;
 function updateUI() {
   // Only touch DOM elements whose values actually changed
   if (hp !== prevUiHp) {
-    document.getElementById('hp-display').textContent = hp;
+    const hpEl = document.getElementById('hp-display');
+    hpEl.textContent = hp;
+    // Color HP display based on how low it is relative to max
+    const diffSettings = DIFFICULTY_SETTINGS[gameDifficulty];
+    const maxHp = diffSettings.maxHp || 20;
+    const hpRatio = hp / maxHp;
+    hpEl.style.color = hpRatio <= 0.2 ? '#e74c3c' : hpRatio <= 0.5 ? '#f39c12' : '';
+    const hpMaxEl = document.getElementById('hp-max-display');
+    if (hpMaxEl) hpMaxEl.textContent = ` /${maxHp}`;
     prevUiHp = hp;
   }
   if (gold !== prevUiGold) {

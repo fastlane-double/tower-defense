@@ -27,7 +27,7 @@
         <div class="difficulty-label">난이도 선택</div>
         <div class="difficulty-options">
           <button class="difficulty-btn selected" data-difficulty="normal" onclick="selectDifficulty('normal')">🟢 일반 — HP 20 / 골드 150</button>
-          <button class="difficulty-btn" data-difficulty="hard" onclick="selectDifficulty('hard')">🔴 하드 — HP 10 / 골드 100</button>
+          <button class="difficulty-btn" data-difficulty="hard" onclick="selectDifficulty('hard')">🔴 하드 — HP 10 / 골드 100 / HP 회복 없음</button>
         </div>
         <div id="difficulty-desc" class="difficulty-desc">기본 난이도입니다.</div>
       </div>
@@ -45,7 +45,7 @@
       <h2>타워 디펜스</h2>
       <div id="player-name-display"></div>
       <div id="stats">
-        <div class="stat"><span class="label">❤️ HP:</span> <span id="hp-display">20</span></div>
+        <div class="stat"><span class="label">❤️ HP:</span> <span id="hp-display">20</span><span id="hp-max-display" style="font-size:0.8em;color:#888;"> /20</span></div>
         <div class="stat"><span class="label">💰 코인:</span> <span id="gold-display">150</span></div>
         <div class="stat"><span class="label">🌊 웨이브:</span> <span id="wave-display">0/50</span></div>
         <div class="stat"><span class="label">⚔️ 단계:</span> <span id="stage-display">1/10</span></div>
@@ -95,7 +95,7 @@
           <div class="tower-icon poison-icon">☠️</div>
           <div class="tower-info">
             <div class="tower-name">독 타워</div>
-            <div class="tower-cost">💰 150</div>
+            <div class="tower-cost">💰 125</div>
             <div class="tower-desc">독 데미지<br>지속 피해</div>
           </div>
         </div>
