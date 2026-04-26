@@ -1275,7 +1275,8 @@ let floatingTexts = [];    // {x, y, text, color, life, maxLife, vy}
 // ── PHASE 3 VISUAL EFFECTS ─────────────────────────────────
 // Storm vortex: per-tower angle for spinning particle halo
 // Laser beams: track active laser firing state per tower
-let stormVortexAngles = {};   // towerIndex -> angle (radians, incremented each frame)
+let _nextTowerId = 1;
+let stormVortexAngles = {};   // tower._uid -> angle (radians, incremented each frame)
 let laserBeams = [];          // [{sx,sy,ex,ey,alpha,color}] — drawn this frame, cleared next
 let teslaArcs = [];           // [{sx,sy,ex,ey,life,maxLife,color,segments}] — decaying lightning arcs
 
@@ -1301,6 +1302,7 @@ let nextEnemyId = 1;
 // --- PERFORMANCE: Object pools for projectiles & particles ---
 const _projectilePool = [];
 const _particlePool = [];
+const MAX_PARTICLES = 500;
 const _enemyPool = [];
 
 function allocProjectile(props) {
@@ -1318,6 +1320,7 @@ function allocProjectile(props) {
 }
 
 function allocParticle(x, y, vx, vy, life, maxLife, color, size) {
+  if (particles.length >= MAX_PARTICLES) return null;
   const obj = _particlePool.pop() || {};
   obj.x = x; obj.y = y; obj.vx = vx; obj.vy = vy;
   obj.life = life; obj.maxLife = maxLife;
@@ -1497,6 +1500,7 @@ function resetGameState() {
   totalKills = 0;
   waveCountdown = 0;
   waveCountdownActive = false;
+  _nextTowerId = 1;
   stormVortexAngles = {};
   laserBeams = [];
   teslaArcs = [];
@@ -1537,7 +1541,7 @@ function gameLoop(timestamp) {
   if (!gameOver && !gamePaused) {
     update(dt, timestamp);
   }
-  render();
+  render(timestamp);
   if (gamePaused) drawPauseOverlay();
   animId = requestAnimationFrame(gameLoop);
 }
@@ -1635,7 +1639,11 @@ function onEnemyKilled(x, y, baseReward) {
 }
 
 // ── FLOATING TEXT ──────────────────────────────────────────
+const MAX_FLOATING_TEXTS = 60;
 function spawnFloatingText(x, y, text, color, size = 13) {
+  if (floatingTexts.length >= MAX_FLOATING_TEXTS) {
+    floatingTexts.shift();
+  }
   floatingTexts.push({ x, y, text, color, size, life: 1.2, maxLife: 1.2, vy: -50 });
 }
 
@@ -2217,11 +2225,13 @@ function dealDamage(enemy, dmg, slowFactor, poisonDmgPerSec, towerRef) {
 // ============================================================
 // PARTICLES
 // ============================================================
+function pushParticle(p) { if (p) particles.push(p); }
+
 function spawnSpark(x, y, color) {
   for (let i = 0; i < 5; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 40 + Math.random() * 60;
-    particles.push(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.3, 0.3, color, 2 + Math.random() * 2));
+    pushParticle(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.3, 0.3, color, 2 + Math.random() * 2));
   }
 }
 
@@ -2229,7 +2239,7 @@ function spawnExplosion(x, y, color) {
   for (let i = 0; i < 12; i++) {
     const angle = (i / 12) * Math.PI * 2;
     const speed = 60 + Math.random() * 80;
-    particles.push(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.6, 0.6, color, 4 + Math.random() * 4));
+    pushParticle(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.6, 0.6, color, 4 + Math.random() * 4));
   }
 }
 
@@ -2237,7 +2247,7 @@ function spawnDeathParticles(x, y, color) {
   for (let i = 0; i < 8; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 30 + Math.random() * 70;
-    particles.push(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed - 50, 0.5, 0.5, color, 3 + Math.random() * 3));
+    pushParticle(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed - 50, 0.5, 0.5, color, 3 + Math.random() * 3));
   }
 }
 
@@ -2320,6 +2330,7 @@ function tryPlaceTower(col, row, type) {
   const cy = row * TILE + TILE / 2;
   towers.push({
     ...def,
+    _uid: _nextTowerId++,
     type,
     col, row, cx, cy,
     range: def.range,
@@ -2343,6 +2354,7 @@ function trySellTower(col, row) {
   const idx = towers.findIndex(t => t.col === col && t.row === row);
   if (idx === -1) return;
   // Use half of total spent (consistent with upgrade shop sell)
+  delete stormVortexAngles[towers[idx]._uid];
   gold += Math.floor(towers[idx].totalSpent / 2);
   towers.splice(idx, 1);
   sfxTowerSell();
@@ -2482,20 +2494,20 @@ function spawnNukeExplosion(x, y) {
     const speed = 80 + Math.random() * 300;
     const color = nukeColors[Math.floor(Math.random() * nukeColors.length)];
     const life = 0.8 + Math.random() * 0.6;
-    particles.push(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, life, 1.4, color, 6 + Math.random() * 12));
+    pushParticle(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, life, 1.4, color, 6 + Math.random() * 12));
   }
   // Shockwave ring particles
   for (let i = 0; i < 36; i++) {
     const angle = (i / 36) * Math.PI * 2;
     const speed = NUKE_BOMB_RADIUS / 0.5;
-    particles.push(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.5, 0.5, '#ffffff', 5 + Math.random() * 5));
+    pushParticle(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.5, 0.5, '#ffffff', 5 + Math.random() * 5));
   }
   // Mushroom cloud smoke (rising)
   for (let i = 0; i < 20; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 20 + Math.random() * 60;
     const life = 1.2 + Math.random() * 0.4;
-    particles.push(allocParticle(x + (Math.random() - 0.5) * 40, y, Math.cos(angle) * speed * 0.3, -(120 + Math.random() * 80), life, 1.6, '#888', 12 + Math.random() * 16));
+    pushParticle(allocParticle(x + (Math.random() - 0.5) * 40, y, Math.cos(angle) * speed * 0.3, -(120 + Math.random() * 80), life, 1.6, '#888', 12 + Math.random() * 16));
   }
 }
 
@@ -2641,7 +2653,7 @@ function applyUpgrade(tower, upgradeIdx) {
   for (let i = 0; i < 20; i++) {
     const angle = (i / 20) * Math.PI * 2;
     const speed = 60 + Math.random() * 80;
-    particles.push(allocParticle(tower.cx, tower.cy,
+    pushParticle(allocParticle(tower.cx, tower.cy,
       Math.cos(angle) * speed, Math.sin(angle) * speed,
       0.5 + Math.random() * 0.4, 0.9, burstColor, 3 + Math.random() * 3));
   }
@@ -2664,6 +2676,7 @@ function sellSelectedTower() {
   const sv = Math.floor(selectedTower.totalSpent / 2);
   gold += sv;
   sfxTowerSell();
+  delete stormVortexAngles[selectedTower._uid];
   const idx = towers.indexOf(selectedTower);
   if (idx !== -1) towers.splice(idx, 1);
   hideUpgradeShop();
@@ -2927,11 +2940,13 @@ function spawnWaveClearCelebration(wave, bonusGold, interestGold) {
   for (let i = 0; i < 14; i++) {
     const angle = -Math.PI * 0.8 + Math.random() * Math.PI * 1.6;
     const speed = 60 + Math.random() * 120;
-    particles.push({ x: cx + (Math.random()-0.5)*30, y: cy+10,
-      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed-30,
-      life: 0.8 + Math.random()*0.5, maxLife: 1.3,
-      color: coinColors[Math.floor(Math.random()*coinColors.length)],
-      size: 3 + Math.random()*4 });
+    if (particles.length < MAX_PARTICLES) {
+      particles.push({ x: cx + (Math.random()-0.5)*30, y: cy+10,
+        vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed-30,
+        life: 0.8 + Math.random()*0.5, maxLife: 1.3,
+        color: coinColors[Math.floor(Math.random()*coinColors.length)],
+        size: 3 + Math.random()*4 });
+    }
   }
   sfxWaveStart();
 }
@@ -3005,7 +3020,7 @@ function spawnVictoryFireworks() {
     for (let i = 0; i < 30; i++) {
       const angle = (i / 30) * Math.PI * 2;
       const speed = 80 + Math.random() * 160;
-      particles.push(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 1.0 + Math.random() * 0.8, 1.8, color, 3 + Math.random() * 5));
+      pushParticle(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 1.0 + Math.random() * 0.8, 1.8, color, 3 + Math.random() * 5));
     }
     // Screen flash
     screenShakeDuration = 0.1;
@@ -3024,12 +3039,12 @@ function restartGame() {
 // ============================================================
 // RENDERING
 // ============================================================
-function render() {
+function render(timestamp) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Screen shake — use sine-based smooth shake instead of random jitter
   if (screenShakeDuration > 0) {
-    const t = performance.now();
+    const t = timestamp;
     const sx = Math.sin(t * 0.07) * screenShakeIntensity * (screenShakeDuration / 0.5);
     const sy = Math.cos(t * 0.09) * screenShakeIntensity * (screenShakeDuration / 0.5);
     ctx.save();
@@ -3601,10 +3616,10 @@ function drawTowers() {
     // ── PHASE 3: Tower-specific ambient effects ──
     if (tower.type === 'storm') {
       // Spinning vortex halo: 6 small dots orbiting the tower
-      const tIdx = towers.indexOf(tower);
-      if (stormVortexAngles[tIdx] === undefined) stormVortexAngles[tIdx] = 0;
-      stormVortexAngles[tIdx] += 0.04;
-      const vAngle = stormVortexAngles[tIdx];
+      const tUid = tower._uid;
+      if (stormVortexAngles[tUid] === undefined) stormVortexAngles[tUid] = 0;
+      stormVortexAngles[tUid] += 0.04;
+      const vAngle = stormVortexAngles[tUid];
       const vRadius = TILE * 0.38;
       for (let vi = 0; vi < 6; vi++) {
         const va = vAngle + (vi / 6) * Math.PI * 2;
