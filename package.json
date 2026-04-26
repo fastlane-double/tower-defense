@@ -1,0 +1,13 @@
+{
+  "name": "tower-defense-client",
+  "version": "1.0.0",
+  "description": "Tower Defense Game - Browser Client",
+  "scripts": {
+    "start": "npx serve . -p 8080 -s",
+    "dev": "npx serve . -p 8080 -s",
+    "install-server": "cd server && npm install",
+    "start-server": "cd server && npm start"
+  },
+  "keywords": ["tower-defense", "game", "canvas"],
+  "license": "ISC"
+}

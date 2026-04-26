@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tower Defense</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Player Name Entry Screen -->
+  <div id="name-screen">
+    <div id="name-content">
+      <h1>🏰 타워 디펜스</h1>
+      <p>플레이어 이름을 입력하세요</p>
+      <input type="text" id="player-name-input" maxlength="32" placeholder="플레이어 이름" autofocus />
+      <div id="difficulty-select">
+        <div class="difficulty-label">난이도 선택</div>
+        <div class="difficulty-options">
+          <button class="difficulty-btn selected" data-difficulty="normal" onclick="selectDifficulty('normal')">🟢 일반</button>
+          <button class="difficulty-btn" data-difficulty="hard" onclick="selectDifficulty('hard')">🔴 하드</button>
+        </div>
+        <div id="difficulty-desc" class="difficulty-desc">기본 난이도입니다.</div>
+      </div>
+      <button onclick="startGame()">게임 시작</button>
+      <div id="leaderboard-preview">
+        <h3>🏆 리더보드</h3>
+        <div id="leaderboard-list">불러오는 중...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Game -->
+  <div id="game-container" style="display:none">
+    <div id="sidebar">
+      <h2>타워 디펜스</h2>
+      <div id="player-name-display"></div>
+      <div id="stats">
+        <div class="stat"><span class="label">❤️ HP:</span> <span id="hp-display">20</span></div>
+        <div class="stat"><span class="label">💰 코인:</span> <span id="gold-display">150</span></div>
+        <div class="stat"><span class="label">🌊 웨이브:</span> <span id="wave-display">0/50</span></div>
+        <div class="stat"><span class="label">⚔️ 단계:</span> <span id="stage-display">1/10</span></div>
+        <div class="stat"><span class="label">🏆 점수:</span> <span id="score-display">0</span></div>
+        <div class="stat"><span class="label">☠️ 처치:</span> <span id="kill-display">0</span></div>
+      </div>
+      <div id="combo-display" style="min-height:18px;font-size:0.8em;font-weight:bold;text-align:center;margin-bottom:4px;transition:color 0.2s;"></div>
+      <div id="stage-name-display" style="font-size:0.75em;color:#aaa;margin-bottom:4px;text-align:center;"></div>
+
+      <div id="tower-shop-hint" style="display:none;font-size:0.7em;color:#00ff88;text-align:center;margin-bottom:4px;font-weight:bold;background:#002200;border-radius:4px;padding:2px 4px;"></div>
+
+      <div id="tower-shop">
+        <h3>🏰 일반 타워</h3>
+        <div class="tower-btn" id="btn-arrow" onclick="selectTower('arrow')">
+          <div class="tower-icon arrow-icon">🏹</div>
+          <div class="tower-info">
+            <div class="tower-name">화살 타워</div>
+            <div class="tower-cost">💰 50</div>
+            <div class="tower-desc">빠른 공격속도<br>기본 데미지</div>
+          </div>
+        </div>
+        <div class="tower-btn" id="btn-cannon" onclick="selectTower('cannon')">
+          <div class="tower-icon cannon-icon">💣</div>
+          <div class="tower-info">
+            <div class="tower-name">대포 타워</div>
+            <div class="tower-cost">💰 100</div>
+            <div class="tower-desc">범위 피해<br>느린 공격속도</div>
+          </div>
+        </div>
+        <div class="tower-btn" id="btn-magic" onclick="selectTower('magic')">
+          <div class="tower-icon magic-icon">🔮</div>
+          <div class="tower-info">
+            <div class="tower-name">마법 타워</div>
+            <div class="tower-cost">💰 125</div>
+            <div class="tower-desc">속도 감소<br>마법 데미지</div>
+          </div>
+        </div>
+        <div class="tower-btn" id="btn-sniper" onclick="selectTower('sniper')">
+          <div class="tower-icon sniper-icon">🎯</div>
+          <div class="tower-info">
+            <div class="tower-name">저격 타워</div>
+            <div class="tower-cost">💰 150</div>
+            <div class="tower-desc">초장거리<br>높은 단일 피해</div>
+          </div>
+        </div>
+        <div class="tower-btn" id="btn-poison" onclick="selectTower('poison')">
+          <div class="tower-icon poison-icon">☠️</div>
+          <div class="tower-info">
+            <div class="tower-name">독 타워</div>
+            <div class="tower-cost">💰 150</div>
+            <div class="tower-desc">독 데미지<br>지속 피해</div>
+          </div>
+        </div>
+        <div class="tower-btn" id="btn-laser" onclick="selectTower('laser')">
+          <div class="tower-icon laser-icon">⚡</div>
+          <div class="tower-info">
+            <div class="tower-name">레이저 타워</div>
+            <div class="tower-cost">💰 200</div>
+            <div class="tower-desc">초고속 공격<br>고출력 레이저</div>
+          </div>
+        </div>
+        <div class="tower-btn" id="btn-storm" onclick="selectTower('storm')">
+          <div class="tower-icon storm-icon">🌪️</div>
+          <div class="tower-info">
+            <div class="tower-name">폭풍 타워</div>
+            <div class="tower-cost">💰 175</div>
+            <div class="tower-desc">광역 폭풍<br>감속+빠른 공격</div>
+          </div>
+        </div>
+        <div class="tower-btn" id="btn-gravity" onclick="selectTower('gravity')">
+          <div class="tower-icon gravity-icon">🕳️</div>
+          <div class="tower-info">
+            <div class="tower-name">중력 타워</div>
+            <div class="tower-cost">💰 225</div>
+            <div class="tower-desc">초강력 감속<br>중력장 피해</div>
+          </div>
+        </div>
+
+        <h3 style="color:#ffd700;margin-top:10px;">👑 프리미엄 타워</h3>
+        <div id="dev-mode-row" style="text-align:center;margin-bottom:6px;">
+          <button id="dev-mode-btn" onclick="toggleDevMode()" style="font-size:0.7em;padding:3px 10px;background:#333;border:1px solid #666;color:#aaa;border-radius:4px;cursor:pointer;">🔒 개발 모드 OFF</button>
+        </div>
+
+        <div class="tower-btn premium" id="btn-tesla" onclick="selectTower('tesla')">
+          <div class="tower-icon">🌩️</div>
+          <div class="tower-info">
+            <div class="tower-name">테슬라 타워</div>
+            <div class="tower-cost">🔒 ₩1,200</div>
+            <div class="tower-desc">체인 번개<br>광역 감전</div>
+          </div>
+          <div class="premium-lock-badge">🔒</div>
+        </div>
+        <div class="tower-btn premium" id="btn-frost" onclick="selectTower('frost')">
+          <div class="tower-icon">❄️</div>
+          <div class="tower-info">
+            <div class="tower-name">서리 타워</div>
+            <div class="tower-cost">🔒 ₩900</div>
+            <div class="tower-desc">광역 빙결<br>극한 감속</div>
+          </div>
+          <div class="premium-lock-badge">🔒</div>
+        </div>
+        <div class="tower-btn premium" id="btn-flame" onclick="selectTower('flame')">
+          <div class="tower-icon">🔥</div>
+          <div class="tower-info">
+            <div class="tower-name">화염 타워</div>
+            <div class="tower-cost">🔒 ₩900</div>
+            <div class="tower-desc">화염 폭발<br>지속 화상</div>
+          </div>
+          <div class="premium-lock-badge">🔒</div>
+        </div>
+        <div class="tower-btn premium" id="btn-nuke" onclick="selectTower('nuke')">
+          <div class="tower-icon">☢️</div>
+          <div class="tower-info">
+            <div class="tower-name">핵 타워</div>
+            <div class="tower-cost">🔒 ₩2,400</div>
+            <div class="tower-desc">초거대 폭발<br>방사능 오염</div>
+          </div>
+          <div class="premium-lock-badge">🔒</div>
+        </div>
+        <div class="tower-btn premium" id="btn-voidray" onclick="selectTower('voidray')">
+          <div class="tower-icon">🌌</div>
+          <div class="tower-info">
+            <div class="tower-name">공허 타워</div>
+            <div class="tower-cost">🔒 ₩1,800</div>
+            <div class="tower-desc">초장거리 광선<br>최강 단일 피해</div>
+          </div>
+          <div class="premium-lock-badge">🔒</div>
+        </div>
+        <div class="tower-btn premium" id="btn-god" onclick="selectTower('god')" style="border-color:#ffd700;background:linear-gradient(135deg,#1a0a00,#3d2b00);">
+          <div class="tower-icon" style="text-shadow:0 0 8px #ffd700;">👑</div>
+          <div class="tower-info">
+            <div class="tower-name" style="color:#ffd700;font-weight:bold;">갓 타워 ★OP★</div>
+            <div class="tower-cost">🔒 $1.00</div>
+            <div class="tower-desc" style="color:#ffcc00;">전지전능<br>궁극의 파괴력</div>
+          </div>
+          <div class="premium-lock-badge" style="background:#ffd700;color:#000;">👑</div>
+        </div>
+      </div>
+
+      <!-- Nuke Bomb Skill Section -->
+      <div id="nuke-bomb-section" style="margin-bottom:8px;background:#1a0a00;border:1px solid #ff4500;border-radius:8px;padding:8px;">
+        <div style="font-size:0.75em;color:#ff8c00;font-weight:bold;margin-bottom:4px;">💣 핵폭탄 스킬</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:0.8em;color:#fff;">보유: <span id="nuke-bomb-count">0</span>개 ☢️</span>
+          <div style="display:flex;gap:4px;">
+            <button id="nuke-bomb-buy-cash-btn" onclick="buyNukeBombCash()" style="font-size:0.7em;padding:3px 7px;background:#ffd700;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💳 $1=3개</button>
+            <button id="nuke-bomb-buy-coin-btn" onclick="buyNukeBombCoin()" style="font-size:0.7em;padding:3px 7px;background:#ff8c00;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💰 500=3개</button>
+          </div>
+        </div>
+        <button id="nuke-bomb-use-btn" onclick="toggleNukeBombMode()" style="width:100%;font-size:0.8em;padding:5px;background:#8b0000;color:#fff;border:1px solid #ff4500;border-radius:5px;cursor:pointer;font-weight:bold;">☢️ 핵폭탄 투하 (클릭으로 지점 선택)</button>
+      </div>
+
+      <div id="wave-preview" style="font-size:0.72em;text-align:center;margin-bottom:4px;color:#ccc;min-height:16px;"></div>
+
+      <div id="wave-control">
+        <button id="start-wave-btn" onclick="startNextWave()">▶ 웨이브 시작</button>
+        <div id="wave-control-row2">
+          <button id="speed-btn" onclick="toggleSpeed()" class="speed-btn" title="게임 속도 2배">▶ 1x</button>
+          <button id="auto-wave-btn" onclick="toggleAutoWave()" class="auto-wave-btn" title="자동 웨이브">🔄 자동</button>
+        </div>
+        <div id="wave-control-row3">
+          <button id="sell-btn" onclick="setSellMode()" class="sell-mode-btn">🔨 타워 판매</button>
+          <button id="mute-btn" onclick="toggleMute()" class="mute-btn" title="사운드 켜기/끄기">🔊</button>
+        </div>
+      </div>
+
+      <div id="selected-info">
+        <div id="tower-selected-info" style="display:none">
+          <h3>선택됨</h3>
+          <div id="selected-tower-name"></div>
+          <div id="selected-tower-stats"></div>
+        </div>
+      </div>
+
+      <div id="upgrade-shop" style="display:none">
+        <h3 id="upgrade-shop-title">업그레이드</h3>
+        <div id="upgrade-shop-stats"></div>
+        <div id="upgrade-shop-btns"></div>
+        <div id="targeting-mode-row" style="margin:6px 0;text-align:center;">
+          <span style="font-size:11px;color:#aaa;">타겟팅:</span>
+          <button class="targeting-btn active" data-mode="first" title="경로 선두 공격">선두</button>
+          <button class="targeting-btn" data-mode="last" title="경로 후미 공격">후미</button>
+          <button class="targeting-btn" data-mode="strong" title="HP 높은 적 공격">강적</button>
+          <button class="targeting-btn" data-mode="close" title="가까운 적 공격">근접</button>
+        </div>
+        <div id="upgrade-sell-row">
+          <button id="upgrade-sell-btn">🔨 판매 (💰 <span id="upgrade-sell-value">0</span>)</button>
+        </div>
+      </div>
+
+      <div id="instructions">
+        <p>클릭으로 타워 배치</p>
+        <p>타워 클릭 → 💰코인으로 업그레이드</p>
+        <p>적이 성에 도달하면 HP 감소</p>
+        <p>5웨이브마다 새 단계 시작!</p>
+        <p>👑 프리미엄 타워로 고단계 공략!</p>
+        <p style="margin-top:6px;font-size:10px;color:#888;">⌨ 단축키: 1-8 타워선택 · Space 웨이브 · S 판매 · F 속도 · A 자동 · N 폭탄 · M 음소거 · Esc 취소</p>
+      </div>
+    </div>
+
+    <div id="canvas-container">
+      <canvas id="game-canvas"></canvas>
+
+      <!-- Stage 2 Transition Overlay -->
+      <div id="stage-transition-overlay" style="display:none">
+        <div id="stage-transition-content">
+          <div class="stage-badge">⚔️ 2단계 돌입!</div>
+          <h1>1단계 클리어!</h1>
+          <p>보너스: 💰100 코인 획득!</p>
+          <div class="stage2-warning">
+            <p>🐉 더 강력한 적들이 나타납니다!</p>
+            <p>정예 병사 · 유령 특공대 · 골렘 · 드래곤</p>
+          </div>
+          <p class="stage-auto">잠시 후 자동으로 시작됩니다...</p>
+        </div>
+      </div>
+
+      <div id="overlay" style="display:none">
+        <div id="overlay-content">
+          <h1 id="overlay-title"></h1>
+          <p id="overlay-msg"></p>
+          <div id="rank-display" style="display:none">
+            <span id="rank-text"></span>
+          </div>
+          <div id="leaderboard-result">
+            <h3>🏆 리더보드</h3>
+            <div id="leaderboard-result-list">불러오는 중...</div>
+          </div>
+          <button onclick="restartGame()">다시 시작</button>
+          <button onclick="goToMenu()">메인 메뉴</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Premium Purchase Modal -->
+  <div id="purchase-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
+    <div id="purchase-modal-content" style="background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:24px;max-width:360px;width:90%;text-align:center;color:#fff;">
+      <h2 id="purchase-modal-title" style="color:#ffd700;margin-bottom:8px;"></h2>
+      <p id="purchase-modal-desc" style="color:#aaa;margin-bottom:12px;font-size:0.9em;"></p>
+      <div style="background:#ffd70022;border:1px solid #ffd700;border-radius:8px;padding:12px;margin-bottom:16px;">
+        <div style="font-size:0.85em;color:#aaa;">영구 잠금 해제 가격</div>
+        <div id="purchase-modal-price" style="font-size:1.8em;font-weight:bold;color:#ffd700;"></div>
+        <div style="font-size:0.75em;color:#888;margin-top:4px;">한 번 구매하면 영구 사용 가능</div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button onclick="confirmPurchase()" style="background:#ffd700;color:#000;font-weight:bold;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:1em;">💳 구매하기</button>
+        <button onclick="closePurchaseModal()" style="background:#444;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:1em;">취소</button>
+      </div>
+      <div id="purchase-modal-coin-option" style="margin-top:12px;display:none;">
+        <div style="border-top:1px solid #444;margin-bottom:10px;padding-top:10px;">
+          <div style="font-size:0.8em;color:#aaa;margin-bottom:6px;">또는 인게임 코인으로 구매</div>
+          <button id="purchase-coin-btn" onclick="confirmCoinPurchase()" style="width:100%;background:#ffd700;color:#000;font-weight:bold;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:0.9em;">💰 코인으로 구매</button>
+        </div>
+      </div>
+      <p style="font-size:0.7em;color:#666;margin-top:4px;">* 개발 모드에서는 무료로 잠금 해제 가능</p>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
