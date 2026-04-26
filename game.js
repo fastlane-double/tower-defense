@@ -350,13 +350,21 @@ const DIFFICULTY_SETTINGS = {
     gold: 150,
     enemyHpMultiplier: 1.0,
     enemySpeedMultiplier: 1.0,
+    enemyRewardMultiplier: 1.0,  // normal gold rewards
+    waveGoldMultiplier: 1.0,     // wave clear gold bonus multiplier
+    hpRegenPerWave: 1,           // HP recovered each wave clear
+    maxHp: 20,                   // max HP cap for regen
   },
   hard: {
     label: '하드',
     hp: 10,
     gold: 100,
-    enemyHpMultiplier: 1.5,
-    enemySpeedMultiplier: 1.2,
+    enemyHpMultiplier: 1.8,      // INCREASED: 1.5 → 1.8 (harder)
+    enemySpeedMultiplier: 1.3,   // INCREASED: 1.2 → 1.3 (faster)
+    enemyRewardMultiplier: 1.3,  // slightly more gold reward to compensate for difficulty
+    waveGoldMultiplier: 0.85,    // 15% less wave clear gold (resource scarcity)
+    hpRegenPerWave: 0,           // no HP regen in hard mode
+    maxHp: 10,                   // hard mode max HP cap
   },
 };
 
@@ -367,7 +375,7 @@ function selectDifficulty(diff) {
   });
   const descEl = document.getElementById('difficulty-desc');
   if (diff === 'hard') {
-    descEl.textContent = '적 HP ×1.5, 적 속도 ×1.2, 시작 HP 10, 시작 골드 100';
+    descEl.textContent = '적 HP ×1.8, 적 속도 ×1.3, 시작 HP 10, 시작 골드 100, HP 회복 없음';
     descEl.style.color = '#e94560';
   } else {
     descEl.textContent = '기본 난이도입니다.';
@@ -464,7 +472,16 @@ async function submitScore(result) {
 function startGame() {
   const input = document.getElementById('player-name-input');
   const name = input.value.trim();
-  if (!name) { input.focus(); return; }
+  if (!name) {
+    input.focus();
+    input.style.borderColor = '#e94560';
+    input.placeholder = '닉네임을 입력해야 시작할 수 있어요!';
+    setTimeout(() => {
+      input.style.borderColor = '';
+      input.placeholder = '닉네임을 입력하세요';
+    }, 2000);
+    return;
+  }
   playerName = name;
   document.getElementById('name-screen').style.display = 'none';
   document.getElementById('game-container').style.display = 'flex';
@@ -1422,6 +1439,18 @@ function initGame() {
   lastTime = performance.now();
   animId = requestAnimationFrame(gameLoop);
   startBgm();
+  // Show first-play onboarding hint for new players
+  showOnboardingHintIfNew();
+}
+
+function showOnboardingHintIfNew() {
+  const seen = localStorage.getItem('td_onboarding_seen');
+  if (seen) return;
+  localStorage.setItem('td_onboarding_seen', '1');
+  const hint = document.getElementById('onboarding-hint');
+  if (!hint) return;
+  hint.style.display = 'block';
+  setTimeout(() => { hint.style.display = 'none'; }, 7000);
 }
 
 function resetGameState() {
@@ -1734,8 +1763,8 @@ function spawnEnemy(type) {
   enemies.push(enemy);
   // Announce final boss with screen shake and sound
   if (type === 'finalBoss') {
-    screenShakeDuration = 1.0;
-    screenShakeIntensity = 15;
+    screenShakeDuration = 0.5;
+    screenShakeIntensity = 7;
     sfxFinalBossSpawn();
   }
 }
@@ -1769,14 +1798,18 @@ function checkWaveEnd() {
       showStageTransition(completedStage, nextStage);
     } else {
       document.getElementById('start-wave-btn').disabled = false;
-      // Bonus gold between waves (scales with stage)
-      const waveBonusGold = 20 + currentStage * 5;
+      const diffSettings = DIFFICULTY_SETTINGS[gameDifficulty];
+      // Bonus gold between waves (scales with stage), modified by difficulty
+      const baseWaveBonusGold = 20 + currentStage * 5;
+      const waveBonusGold = Math.floor(baseWaveBonusGold * (diffSettings.waveGoldMultiplier || 1.0));
       const interestGold = Math.min(80, Math.floor(gold * 0.02));
       gold += waveBonusGold + interestGold;
       spawnWaveClearCelebration(currentWave, waveBonusGold, interestGold);
-      // HP regen on wave clear (1 HP, max 20)
-      if (hp < 20) {
-        hp = Math.min(20, hp + 1);
+      // HP regen on wave clear — use difficulty settings (hard mode: no regen)
+      const hpRegenAmount = diffSettings.hpRegenPerWave || 0;
+      const maxHpCap = diffSettings.maxHp || 20;
+      if (hpRegenAmount > 0 && hp < maxHpCap) {
+        hp = Math.min(maxHpCap, hp + hpRegenAmount);
         spawnFloatingText(canvas.width / 2, canvas.height * 0.45, '+1 HP', '#ff6b6b', 14);
         uiDirty = true;
       }
@@ -1880,8 +1913,8 @@ function updateEnemies(dt) {
       hp--;
       uiDirty = true;
       sfxHpLoss();
-      screenShakeDuration = 0.35;
-      screenShakeIntensity = 8;
+      screenShakeDuration = 0.2;
+      screenShakeIntensity = 4;
       if (hp <= 0) { hp = 0; gameOver = true; showOverlay(false); }
       continue;
     }
@@ -2120,8 +2153,8 @@ function dealDamage(enemy, dmg, slowFactor, poisonDmgPerSec, towerRef) {
     const prev = (enemy.hp + finalDmg) / enemy.maxHp;
     for (const threshold of [0.75, 0.5, 0.25]) {
       if (prev > threshold && pct <= threshold) {
-        screenShakeDuration = 0.4;
-        screenShakeIntensity = 10;
+        screenShakeDuration = 0.25;
+        screenShakeIntensity = 5;
         spawnFloatingText(enemy.x, enemy.y - enemy.size - 20, threshold === 0.25 ? '⚠️ HP 25%!' : threshold === 0.5 ? '⚠️ HP 50%!' : '⚠️ HP 75%!', '#ff4444');
         sfxHpLoss();
         break;
@@ -2427,8 +2460,8 @@ function dropNukeBomb(mx, my) {
   sfxNukeExplosion();
 
   // Strong screen shake
-  screenShakeDuration = 0.8;
-  screenShakeIntensity = 18;
+  screenShakeDuration = 0.4;
+  screenShakeIntensity = 9;
 
   updateUI();
 }
@@ -2967,8 +3000,8 @@ function spawnVictoryFireworks() {
       particles.push(allocParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 1.0 + Math.random() * 0.8, 1.8, color, 3 + Math.random() * 5));
     }
     // Screen flash
-    screenShakeDuration = 0.15;
-    screenShakeIntensity = 4;
+    screenShakeDuration = 0.1;
+    screenShakeIntensity = 2;
     setTimeout(burst, 400 + Math.random() * 600);
   }
   burst();

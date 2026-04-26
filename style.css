@@ -818,3 +818,207 @@ body {
 .shake {
   animation: shake 0.35s ease;
 }
+
+/* ── Intro Screen Enhancements ── */
+#intro-header {
+  margin-bottom: 16px;
+}
+
+.intro-tagline {
+  font-size: 0.88rem;
+  color: #a8b2c1;
+  margin-bottom: 10px !important;
+  line-height: 1.4;
+}
+
+.intro-howto {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.intro-howto span {
+  font-size: 0.75rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 3px 10px;
+  color: #a8b2c1;
+}
+
+#start-game-btn {
+  font-size: 1.1rem !important;
+  padding: 14px !important;
+  background: linear-gradient(135deg, #e94560, #c73652) !important;
+  box-shadow: 0 4px 16px rgba(233, 69, 96, 0.4);
+  letter-spacing: 0.5px;
+  transition: all 0.2s !important;
+}
+
+#start-game-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 24px rgba(233, 69, 96, 0.6) !important;
+}
+
+/* Make difficulty buttons display full label on mobile */
+.difficulty-btn {
+  font-size: 0.8rem !important;
+}
+
+/* Wider intro card for mobile */
+@media (max-width: 420px) {
+  #name-content {
+    width: 94vw;
+    padding: 24px 16px;
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+
+  #name-content h1 {
+    font-size: 1.6rem;
+  }
+
+  .intro-howto {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .difficulty-options {
+    flex-direction: column;
+  }
+
+  .difficulty-btn {
+    padding: 12px !important;
+  }
+}
+
+/* ── Mobile Game Layout ── */
+@media (max-width: 600px) {
+  body {
+    overflow: auto;
+  }
+
+  #game-container {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  #sidebar {
+    width: 100%;
+    max-height: none;
+    border-right: none;
+    border-bottom: 2px solid #0f3460;
+    padding: 8px 10px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    overflow-y: visible;
+  }
+
+  #sidebar h2 {
+    width: 100%;
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+
+  #stats {
+    flex: 1;
+    min-width: 150px;
+  }
+
+  .stat {
+    font-size: 0.85rem;
+  }
+
+  #tower-shop {
+    flex: 1;
+    min-width: 160px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  #tower-shop h3 {
+    width: 100%;
+  }
+
+  .tower-btn {
+    padding: 8px;
+    min-width: 80px;
+    flex: 1;
+  }
+
+  .tower-icon {
+    font-size: 1.4rem;
+    width: 28px;
+  }
+
+  .tower-info .tower-name {
+    font-size: 0.75rem;
+  }
+
+  .tower-info .tower-desc {
+    display: none;
+  }
+
+  #wave-control {
+    width: 100%;
+  }
+
+  #start-wave-btn {
+    font-size: 1rem;
+    padding: 12px;
+    min-height: 44px;
+  }
+
+  /* Bigger touch targets for wave control buttons */
+  .speed-btn,
+  .auto-wave-btn,
+  .sell-mode-btn,
+  .mute-btn {
+    min-height: 40px;
+    font-size: 0.9rem;
+  }
+
+  #canvas-container {
+    width: 100%;
+    min-height: 300px;
+  }
+
+  #game-canvas {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  #instructions {
+    display: none;
+  }
+}
+
+/* ── First-play onboarding hint ── */
+#onboarding-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 52, 96, 0.95);
+  border: 1px solid #4a90d9;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.85rem;
+  color: #e0e0e0;
+  text-align: center;
+  z-index: 50;
+  pointer-events: none;
+  animation: fadeInOut 6s ease forwards;
+  white-space: nowrap;
+}
+
+#onboarding-hint .hint-arrow {
+  color: #4a90d9;
+  font-weight: bold;
+}
+

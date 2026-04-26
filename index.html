@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tower Defense</title>
+  <title>🏰 타워 디펜스 — 50웨이브를 버텨라!</title>
+  <meta name="description" content="타워를 배치하고 적의 침략을 막아라! 8종 일반 타워 + 6종 프리미엄 타워, 50웨이브 + 보스전, 리더보드 지원.">
+  <meta name="theme-color" content="#1a1a2e">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,20 +13,27 @@
   <!-- Player Name Entry Screen -->
   <div id="name-screen">
     <div id="name-content">
-      <h1>🏰 타워 디펜스</h1>
-      <p>플레이어 이름을 입력하세요</p>
-      <input type="text" id="player-name-input" maxlength="32" placeholder="플레이어 이름" autofocus />
+      <div id="intro-header">
+        <h1>🏰 타워 디펜스</h1>
+        <p class="intro-tagline">적의 침략을 막아라! 타워를 배치하고 50웨이브를 버텨내자</p>
+        <div class="intro-howto">
+          <span>🖱 클릭으로 타워 배치</span>
+          <span>💰 코인으로 업그레이드</span>
+          <span>🌊 웨이브마다 적 증강</span>
+        </div>
+      </div>
+      <input type="text" id="player-name-input" maxlength="32" placeholder="닉네임을 입력하세요" autofocus onkeydown="if(event.key==='Enter')startGame()" />
       <div id="difficulty-select">
         <div class="difficulty-label">난이도 선택</div>
         <div class="difficulty-options">
-          <button class="difficulty-btn selected" data-difficulty="normal" onclick="selectDifficulty('normal')">🟢 일반</button>
-          <button class="difficulty-btn" data-difficulty="hard" onclick="selectDifficulty('hard')">🔴 하드</button>
+          <button class="difficulty-btn selected" data-difficulty="normal" onclick="selectDifficulty('normal')">🟢 일반 — HP 20 / 골드 150</button>
+          <button class="difficulty-btn" data-difficulty="hard" onclick="selectDifficulty('hard')">🔴 하드 — HP 10 / 골드 100</button>
         </div>
         <div id="difficulty-desc" class="difficulty-desc">기본 난이도입니다.</div>
       </div>
-      <button onclick="startGame()">게임 시작</button>
+      <button id="start-game-btn" onclick="startGame()">⚔️ 게임 시작!</button>
       <div id="leaderboard-preview">
-        <h3>🏆 리더보드</h3>
+        <h3>🏆 랭킹 TOP 10</h3>
         <div id="leaderboard-list">불러오는 중...</div>
       </div>
     </div>
@@ -182,8 +191,8 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <span style="font-size:0.8em;color:#fff;">보유: <span id="nuke-bomb-count">0</span>개 ☢️</span>
           <div style="display:flex;gap:4px;">
-            <button id="nuke-bomb-buy-cash-btn" onclick="buyNukeBombCash()" style="font-size:0.7em;padding:3px 7px;background:#ffd700;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💳 $1=3개</button>
-            <button id="nuke-bomb-buy-coin-btn" onclick="buyNukeBombCoin()" style="font-size:0.7em;padding:3px 7px;background:#ff8c00;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💰 500=3개</button>
+            <button id="nuke-bomb-buy-cash-btn" onclick="buyNukeBombCash()" style="font-size:0.7em;padding:5px 8px;background:#ffd700;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:bold;" title="$1로 핵폭탄 3개 구매">💳 $1 → 3개</button>
+            <button id="nuke-bomb-buy-coin-btn" onclick="buyNukeBombCoin()" style="font-size:0.7em;padding:5px 8px;background:#ff8c00;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:bold;" title="코인 500개로 핵폭탄 3개 구매">💰 500코인 → 3개</button>
           </div>
         </div>
         <button id="nuke-bomb-use-btn" onclick="toggleNukeBombMode()" style="width:100%;font-size:0.8em;padding:5px;background:#8b0000;color:#fff;border:1px solid #ff4500;border-radius:5px;cursor:pointer;font-weight:bold;">☢️ 핵폭탄 투하 (클릭으로 지점 선택)</button>
@@ -228,17 +237,21 @@
       </div>
 
       <div id="instructions">
-        <p>클릭으로 타워 배치</p>
-        <p>타워 클릭 → 💰코인으로 업그레이드</p>
-        <p>적이 성에 도달하면 HP 감소</p>
-        <p>5웨이브마다 새 단계 시작!</p>
-        <p>👑 프리미엄 타워로 고단계 공략!</p>
-        <p style="margin-top:6px;font-size:10px;color:#888;">⌨ 단축키: 1-8 타워선택 · Space 웨이브 · S 판매 · F 속도 · A 자동 · N 폭탄 · M 음소거 · Esc 취소</p>
+        <p>🖱 잔디칸 클릭 → 타워 배치</p>
+        <p>🔧 배치된 타워 클릭 → 업그레이드</p>
+        <p>❤️ 적이 성에 도달하면 HP 감소</p>
+        <p>⚔️ 5웨이브마다 새 단계 돌입!</p>
+        <p>👑 <span style="color:#ffd700">프리미엄 타워</span>로 고단계 공략!</p>
+        <p style="margin-top:6px;font-size:10px;color:#888;">⌨ 단축키: 1-8 타워 · Space 웨이브 · S 판매 · F 속도 · A 자동 · N 폭탄 · M 음소거 · Esc 취소</p>
       </div>
     </div>
 
     <div id="canvas-container">
       <canvas id="game-canvas"></canvas>
+      <!-- First-play onboarding hint -->
+      <div id="onboarding-hint" style="display:none;">
+        <span class="hint-arrow">👆</span> 초록색 잔디 칸을 클릭하여 타워를 배치하세요! 먼저 타워 종류를 선택하고 배치하세요.
+      </div>
 
       <!-- Stage 2 Transition Overlay -->
       <div id="stage-transition-overlay" style="display:none">
@@ -278,18 +291,18 @@
       <h2 id="purchase-modal-title" style="color:#ffd700;margin-bottom:8px;"></h2>
       <p id="purchase-modal-desc" style="color:#aaa;margin-bottom:12px;font-size:0.9em;"></p>
       <div style="background:#ffd70022;border:1px solid #ffd700;border-radius:8px;padding:12px;margin-bottom:16px;">
-        <div style="font-size:0.85em;color:#aaa;">영구 잠금 해제 가격</div>
-        <div id="purchase-modal-price" style="font-size:1.8em;font-weight:bold;color:#ffd700;"></div>
-        <div style="font-size:0.75em;color:#888;margin-top:4px;">한 번 구매하면 영구 사용 가능</div>
+        <div style="font-size:0.85em;color:#aaa;">영구 잠금 해제 — 한 번 구매로 무한 사용</div>
+        <div id="purchase-modal-price" style="font-size:1.8em;font-weight:bold;color:#ffd700;margin:4px 0;"></div>
+        <div style="font-size:0.75em;color:#00cc88;margin-top:4px;">✅ 모든 기기에서 영구 사용 가능</div>
       </div>
       <div style="display:flex;gap:10px;justify-content:center;">
-        <button onclick="confirmPurchase()" style="background:#ffd700;color:#000;font-weight:bold;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:1em;">💳 구매하기</button>
-        <button onclick="closePurchaseModal()" style="background:#444;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:1em;">취소</button>
+        <button onclick="confirmPurchase()" style="background:#ffd700;color:#000;font-weight:bold;padding:12px 24px;border:none;border-radius:8px;cursor:pointer;font-size:1.05em;box-shadow:0 0 12px rgba(255,215,0,0.4);">💳 지금 잠금 해제!</button>
+        <button onclick="closePurchaseModal()" style="background:#444;color:#fff;padding:12px 20px;border:none;border-radius:8px;cursor:pointer;font-size:1em;">닫기</button>
       </div>
       <div id="purchase-modal-coin-option" style="margin-top:12px;display:none;">
         <div style="border-top:1px solid #444;margin-bottom:10px;padding-top:10px;">
-          <div style="font-size:0.8em;color:#aaa;margin-bottom:6px;">또는 인게임 코인으로 구매</div>
-          <button id="purchase-coin-btn" onclick="confirmCoinPurchase()" style="width:100%;background:#ffd700;color:#000;font-weight:bold;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:0.9em;">💰 코인으로 구매</button>
+          <div style="font-size:0.8em;color:#aaa;margin-bottom:6px;">💡 코인이 충분하다면 인게임 코인으로도 구매 가능!</div>
+          <button id="purchase-coin-btn" onclick="confirmCoinPurchase()" style="width:100%;background:linear-gradient(135deg,#b8860b,#ffd700);color:#000;font-weight:bold;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-size:0.9em;">💰 코인으로 잠금 해제</button>
         </div>
       </div>
       <p style="font-size:0.7em;color:#666;margin-top:4px;">* 개발 모드에서는 무료로 잠금 해제 가능</p>
