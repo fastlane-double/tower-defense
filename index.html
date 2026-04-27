@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🏰 타워 디펜스 — 50웨이브를 버텨라!</title>
-  <meta name="description" content="타워를 배치하고 적의 침략을 막아라! 8종 일반 타워 + 6종 프리미엄 타워, 50웨이브 + 보스전, 리더보드 지원.">
+  <title>🏰 타워 디펜스 — 무한 웨이브를 버텨라!</title>
+  <meta name="description" content="타워를 배치하고 적의 침략을 막아라! 8종 일반 타워 + 6종 프리미엄 타워, 무한 웨이브 + 10웨이브마다 보스전, 리더보드 지원.">
   <meta name="theme-color" content="#1a1a2e">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -15,7 +15,7 @@
     <div id="name-content">
       <div id="intro-header">
         <h1>🏰 타워 디펜스</h1>
-        <p class="intro-tagline">적의 침략을 막아라! 타워를 배치하고 50웨이브를 버텨내자</p>
+        <p class="intro-tagline">적의 침략을 막아라! 타워를 배치하고 최대한 오래 버텨내자</p>
         <div class="intro-howto">
           <span>🖱 클릭으로 타워 배치</span>
           <span>💰 코인으로 업그레이드</span>
@@ -23,14 +23,6 @@
         </div>
       </div>
       <input type="text" id="player-name-input" maxlength="32" placeholder="닉네임을 입력하세요" autofocus onkeydown="if(event.key==='Enter')startGame()" />
-      <div id="difficulty-select">
-        <div class="difficulty-label">난이도 선택</div>
-        <div class="difficulty-options">
-          <button class="difficulty-btn selected" data-difficulty="normal" onclick="selectDifficulty('normal')">🟢 일반 — HP 20 / 골드 150</button>
-          <button class="difficulty-btn" data-difficulty="hard" onclick="selectDifficulty('hard')">🔴 하드 — HP 10 / 골드 100 / HP 회복 없음</button>
-        </div>
-        <div id="difficulty-desc" class="difficulty-desc">기본 난이도입니다.</div>
-      </div>
       <button id="start-game-btn" onclick="startGame()">⚔️ 게임 시작!</button>
       <div id="leaderboard-preview">
         <h3>🏆 랭킹 TOP 10</h3>
@@ -47,8 +39,7 @@
       <div id="stats">
         <div class="stat"><span class="label">❤️ HP:</span> <span id="hp-display">20</span><span id="hp-max-display" style="font-size:0.8em;color:#888;"> /20</span></div>
         <div class="stat"><span class="label">💰 코인:</span> <span id="gold-display">150</span></div>
-        <div class="stat"><span class="label">🌊 웨이브:</span> <span id="wave-display">0/50</span></div>
-        <div class="stat"><span class="label">⚔️ 단계:</span> <span id="stage-display">1/10</span></div>
+        <div class="stat"><span class="label">🌊 웨이브:</span> <span id="wave-display">0</span></div>
         <div class="stat"><span class="label">🏆 점수:</span> <span id="score-display">0</span></div>
         <div class="stat"><span class="label">☠️ 처치:</span> <span id="kill-display">0</span></div>
       </div>
@@ -240,7 +231,7 @@
         <p>🖱 잔디칸 클릭 → 타워 배치</p>
         <p>🔧 배치된 타워 클릭 → 업그레이드</p>
         <p>❤️ 적이 성에 도달하면 HP 감소</p>
-        <p>⚔️ 5웨이브마다 새 단계 돌입!</p>
+        <p>👹 10웨이브마다 보스 등장!</p>
         <p>👑 <span style="color:#ffd700">프리미엄 타워</span>로 고단계 공략!</p>
         <p style="margin-top:6px;font-size:10px;color:#888;">⌨ 단축키: 1-8 타워 · Space 웨이브 · S 판매 · F 속도 · A 자동 · N 폭탄 · M 음소거 · Esc 취소</p>
       </div>

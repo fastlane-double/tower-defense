@@ -19,7 +19,7 @@ function leaderboardHandler(req, res) {
       SELECT id, player_name, score, wave, duration_seconds, created_at
       FROM scores
       WHERE player_name = ?
-      ORDER BY score DESC
+      ORDER BY wave DESC, score DESC
       LIMIT ? OFFSET ?
     `;
     params = [playerName, limit, offset];
@@ -27,7 +27,7 @@ function leaderboardHandler(req, res) {
     query = `
       SELECT id, player_name, score, wave, duration_seconds, created_at
       FROM scores
-      ORDER BY score DESC
+      ORDER BY wave DESC, score DESC
       LIMIT ? OFFSET ?
     `;
     params = [limit, offset];
@@ -63,7 +63,7 @@ router.get('/', (req, res) => {
       SELECT id, player_name, score, wave, duration_seconds, created_at
       FROM scores
       WHERE player_name = ?
-      ORDER BY score DESC
+      ORDER BY wave DESC, score DESC
       LIMIT ? OFFSET ?
     `;
     params = [playerName, limit, offset];
@@ -71,7 +71,7 @@ router.get('/', (req, res) => {
     query = `
       SELECT id, player_name, score, wave, duration_seconds, created_at
       FROM scores
-      ORDER BY score DESC
+      ORDER BY wave DESC, score DESC
       LIMIT ? OFFSET ?
     `;
     params = [limit, offset];
@@ -99,7 +99,7 @@ router.get('/player/:name', (req, res) => {
     SELECT id, player_name, score, wave, duration_seconds, created_at
     FROM scores
     WHERE player_name = ?
-    ORDER BY score DESC
+    ORDER BY wave DESC, score DESC
     LIMIT 1
   `).get(name);
 
@@ -110,8 +110,8 @@ router.get('/player/:name', (req, res) => {
   const rank = db.prepare(`
     SELECT COUNT(*) + 1 as rank
     FROM scores
-    WHERE score > ?
-  `).get(best.score).rank;
+    WHERE wave > ? OR (wave = ? AND score > ?)
+  `).get(best.wave, best.wave, best.score).rank;
 
   res.json({ ...best, rank });
 });
@@ -139,8 +139,8 @@ router.post('/', (req, res) => {
   `).run(id, trimmedName, score, wave || 1, duration_seconds || 0);
 
   const rank = db.prepare(`
-    SELECT COUNT(*) + 1 as rank FROM scores WHERE score > ?
-  `).get(score).rank;
+    SELECT COUNT(*) + 1 as rank FROM scores WHERE wave > ? OR (wave = ? AND score > ?)
+  `).get(wave || 1, wave || 1, score).rank;
 
   const entry = db.prepare('SELECT * FROM scores WHERE id = ?').get(id);
 

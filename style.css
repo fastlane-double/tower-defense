@@ -63,57 +63,6 @@ body {
 }
 
 /* ── Difficulty Selector ── */
-#difficulty-select {
-  margin-bottom: 12px;
-}
-
-.difficulty-label {
-  font-size: 0.85rem;
-  color: #a8b2c1;
-  margin-bottom: 8px;
-}
-
-.difficulty-options {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.difficulty-btn {
-  flex: 1;
-  padding: 10px;
-  border-radius: 8px;
-  border: 2px solid #0f3460;
-  background: #0d1b2a;
-  color: #a8b2c1;
-  font-size: 0.95rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.difficulty-btn:hover {
-  border-color: #4a90d9;
-  color: #e0e0e0;
-}
-
-.difficulty-btn.selected[data-difficulty="normal"] {
-  border-color: #2ecc71;
-  background: rgba(46, 204, 113, 0.15);
-  color: #2ecc71;
-}
-
-.difficulty-btn.selected[data-difficulty="hard"] {
-  border-color: #e94560;
-  background: rgba(233, 69, 96, 0.15);
-  color: #e94560;
-}
-
-.difficulty-desc {
-  font-size: 0.75rem;
-  color: #888;
-  min-height: 16px;
-}
 
 #name-content button {
   width: 100%;
@@ -862,11 +811,6 @@ body {
   box-shadow: 0 6px 24px rgba(233, 69, 96, 0.6) !important;
 }
 
-/* Make difficulty buttons display full label on mobile */
-.difficulty-btn {
-  font-size: 0.8rem !important;
-}
-
 /* Wider intro card for mobile */
 @media (max-width: 420px) {
   #name-content {
@@ -885,13 +829,6 @@ body {
     align-items: center;
   }
 
-  .difficulty-options {
-    flex-direction: column;
-  }
-
-  .difficulty-btn {
-    padding: 12px !important;
-  }
 }
 
 /* ── Mobile Game Layout ── */

@@ -267,11 +267,11 @@ const ACHIEVEMENTS = [
   { id: 'first_blood',  name: '첫 피',         desc: '첫 번째 적을 처치하라',         icon: '⚔️',  check: (s) => s.totalKills >= 1 },
   { id: 'century',      name: '백인 학살',       desc: '적 100마리를 처치하라',          icon: '💯',  check: (s) => s.totalKills >= 100 },
   { id: 'combo_master', name: '콤보 마스터',     desc: '20연속 콤보를 달성하라',          icon: '🔥',  check: (s) => s.maxCombo >= 20 },
-  { id: 'stage5',       name: '절반의 영웅',     desc: '5단계에 도달하라',               icon: '🌟',  check: (s) => s.currentStage >= 5 },
+  { id: 'wave20',       name: '생존자',          desc: '20웨���브를 돌파하라',              icon: '🌟',  check: (s) => s.currentWave >= 20 },
   { id: 'survivor',     name: '생존의 달인',     desc: '체력 10 이상으로 웨이브 25를 넘겨라', icon: '❤️',  check: (s) => s.currentWave >= 25 && s.hp >= 10 },
   { id: 'rich',         name: '황금 손',         desc: '골드 1000 이상 보유하라',         icon: '💰',  check: (s) => s.gold >= 1000 },
-  { id: 'speedrun',     name: '전광석화',        desc: '10분 이내에 5단계를 클리어하라',   icon: '⚡',  check: (s) => s.currentStage >= 6 && s.elapsedSecs < 600 },
-  { id: 'perfect',      name: '완벽한 수비',     desc: '모든 웨이브를 클리어하며 승리하라', icon: '🏆',  check: (s) => s.victory && s.hp > 0 },
+  { id: 'wave50',       name: '전설의 수호자',    desc: '50웨이브를 돌파하라',              icon: '⚡',  check: (s) => s.currentWave >= 50 },
+  { id: 'wave100',      name: '불멸의 영웅',     desc: '100웨이브를 돌파하라',             icon: '🏆',  check: (s) => s.currentWave >= 100 },
 ];
 
 function getUnlockedAchievements() {
@@ -291,7 +291,7 @@ function unlockAchievement(id) {
 function checkAchievements() {
   const now = performance.now();
   const elapsedSecs = sessionStartTime ? (now - sessionStartTime) / 1000 : 9999;
-  const state = { totalKills, maxCombo, currentStage, hp, gold, currentWave, victory, elapsedSecs };
+  const state = { totalKills, maxCombo, currentStage, hp, gold, currentWave, elapsedSecs };
   for (const ach of ACHIEVEMENTS) {
     if (ach.check(state)) {
       const justUnlocked = unlockAchievement(ach.id);
@@ -332,7 +332,7 @@ function toggleAutoWave() {
   if (btn) {
     btn.classList.toggle('active', autoWaveEnabled);
   }
-  if (autoWaveEnabled && !waveInProgress && !gameOver && !stageTransition && currentWave < TOTAL_WAVES) {
+  if (autoWaveEnabled && !waveInProgress && !gameOver && !stageTransition) {
     startNextWave();
   }
 }
@@ -340,48 +340,13 @@ function toggleAutoWave() {
 let playerName = '';
 let sessionStartTime = null;
 
-// ── DIFFICULTY SYSTEM ────────────────────────────────────────
-let gameDifficulty = 'normal'; // 'normal' or 'hard'
-
-const DIFFICULTY_SETTINGS = {
-  normal: {
-    label: '일반',
-    hp: 20,
-    gold: 150,
-    enemyHpMultiplier: 1.0,
-    enemySpeedMultiplier: 1.0,
-    enemyRewardMultiplier: 1.0,  // normal gold rewards
-    waveGoldMultiplier: 1.0,     // wave clear gold bonus multiplier
-    hpRegenPerWave: 1,           // HP recovered each wave clear
-    maxHp: 20,                   // max HP cap for regen
-  },
-  hard: {
-    label: '하드',
-    hp: 10,
-    gold: 100,
-    enemyHpMultiplier: 1.8,      // INCREASED: 1.5 → 1.8 (harder)
-    enemySpeedMultiplier: 1.3,   // INCREASED: 1.2 → 1.3 (faster)
-    enemyRewardMultiplier: 1.3,  // slightly more gold reward to compensate for difficulty
-    waveGoldMultiplier: 0.85,    // 15% less wave clear gold (resource scarcity)
-    hpRegenPerWave: 0,           // no HP regen in hard mode
-    maxHp: 10,                   // hard mode max HP cap
-  },
+// ── GAME SETTINGS (single mode, no difficulty selection) ─────
+const GAME_SETTINGS = {
+  hp: 20,
+  gold: 150,
+  hpRegenPerWave: 1,
+  maxHp: 20,
 };
-
-function selectDifficulty(diff) {
-  gameDifficulty = diff;
-  document.querySelectorAll('.difficulty-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.difficulty === diff);
-  });
-  const descEl = document.getElementById('difficulty-desc');
-  if (diff === 'hard') {
-    descEl.textContent = '적 HP ×1.8, 적 속도 ×1.3, 시작 HP 10, 시작 골드 100, HP 회복 없음';
-    descEl.style.color = '#e94560';
-  } else {
-    descEl.textContent = '기본 난이도입니다.';
-    descEl.style.color = '#888';
-  }
-}
 
 async function fetchLeaderboard(containerEl) {
   try {
@@ -409,11 +374,11 @@ function renderLeaderboard(el, scores, highlight) {
   el.innerHTML = scores.map((s, i) => {
     const mine = highlight && s.player_name === highlight;
     const safeName = escapeHtml(s.player_name);
-    const diffBadge = s.difficulty === 'hard' ? ' <span style="color:#e94560;font-size:0.8em">🔴</span>' : '';
+    const waveText = s.wave ? `${s.wave}웨이브` : `${s.score.toLocaleString()}`;
     return `<div class="lb-entry${mine ? ' lb-mine' : ''}">
       <span class="lb-rank">#${i + 1}</span>
-      <span class="lb-name">${safeName}${diffBadge}</span>
-      <span class="lb-score">${s.score.toLocaleString()}</span>
+      <span class="lb-name">${safeName}</span>
+      <span class="lb-score">🌊 ${waveText}</span>
     </div>`;
   }).join('');
 }
@@ -433,7 +398,6 @@ async function submitScore(result) {
         score,
         wave: currentWave,
         duration_seconds: durationSeconds,
-        difficulty: gameDifficulty,
       }),
     });
     const scoreData = scoreRes.ok ? await scoreRes.json() : null;
@@ -448,7 +412,6 @@ async function submitScore(result) {
         wave_reached: currentWave,
         duration_seconds: durationSeconds,
         result,
-        difficulty: gameDifficulty,
         started_at: new Date(sessionStartTime).toISOString(),
       }),
     });
@@ -485,8 +448,7 @@ function startGame() {
   playerName = name;
   document.getElementById('name-screen').style.display = 'none';
   document.getElementById('game-container').style.display = 'flex';
-  const diffLabel = gameDifficulty === 'hard' ? ' 🔴하드' : '';
-  document.getElementById('player-name-display').textContent = `👤 ${playerName}${diffLabel}`;
+  document.getElementById('player-name-display').textContent = `👤 ${playerName}`;
   sessionStartTime = Date.now();
   initGame();
 }
@@ -497,7 +459,6 @@ function goToMenu() {
   document.getElementById('name-screen').style.display = 'flex';
   playerName = '';
   sessionStartTime = null;
-  selectDifficulty(gameDifficulty);
   fetchLeaderboard(document.getElementById('leaderboard-list'));
 }
 
@@ -1135,10 +1096,9 @@ const ENEMY_DEFS = {
 
 // --- WAVE DEFINITIONS ---
 // Each wave: array of {type, count, interval (ms between spawns), delay (ms before first spawn)}
-// 10 stages × 5 waves each = 50 total waves
-const WAVES_PER_STAGE = 5;
-const TOTAL_STAGES = 10;
-const TOTAL_WAVES = WAVES_PER_STAGE * TOTAL_STAGES;
+// Waves are infinite and generated procedurally. Boss every 10 waves.
+const WAVES_PER_STAGE = 5; // kept for stage color theming (cycles every 5 waves)
+const TOTAL_STAGES = 10;   // number of distinct stage themes (cycles)
 
 // Stage info (name, bonus gold, bonus score, color theme)
 const STAGE_INFO = [
@@ -1223,8 +1183,73 @@ const WAVE_DEFS = [
   [{type:'worldeater', count:1, interval:0, delay:0}, {type:'abomination', count:8, interval:5000, delay:5000}, {type:'apocalypse', count:15, interval:1500, delay:3000}],
   [{type:'worldeater', count:2, interval:20000, delay:0}, {type:'apocalypse', count:20, interval:1200, delay:5000}],
   [{type:'worldeater', count:2, interval:18000, delay:0}, {type:'abomination', count:10, interval:4000, delay:5000}, {type:'apocalypse', count:25, interval:1000, delay:3000}],
-  [{type:'finalBoss', count:1, interval:0, delay:0}, {type:'worldeater', count:3, interval:15000, delay:8000}, {type:'abomination', count:12, interval:3500, delay:5000}, {type:'apocalypse', count:30, interval:800, delay:3000}], // FINAL WAVE
+  [{type:'finalBoss', count:1, interval:0, delay:0}, {type:'worldeater', count:3, interval:15000, delay:8000}, {type:'abomination', count:12, interval:3500, delay:5000}, {type:'apocalypse', count:30, interval:800, delay:3000}], // Stage 10 Final
 ];
+
+// ── PROCEDURAL INFINITE WAVE GENERATOR ───────────────────────
+// For waves beyond the predefined WAVE_DEFS, or to get any wave by index.
+// Every 10th wave is a boss wave.
+const ENEMY_PROGRESSION = [
+  'basic', 'fast', 'tank',                     // early (waves 1-5)
+  'elite', 'phantom', 'golem',                  // mid-early (waves 6-15)
+  'wraith', 'titan', 'dragon', 'hydra',         // mid (waves 16-30)
+  'mech', 'colossus', 'deathknight', 'lich',    // hard (waves 31-45)
+  'demon', 'behemoth', 'voidbeast', 'abomination', // expert (waves 46-70)
+  'apocalypse', 'worldeater',                   // endgame (waves 71+)
+];
+
+const BOSS_PROGRESSION = [
+  'boss', 'dragon', 'hydra', 'lich', 'behemoth',
+  'abomination', 'apocalypse', 'worldeater', 'finalBoss',
+];
+
+function getProceduralWave(waveIndex) {
+  // waveIndex is 0-based (wave 1 = index 0)
+  const waveNum = waveIndex + 1;
+  const isBossWave = waveNum % 10 === 0;
+  const tier = Math.floor(waveNum / 10); // increases every 10 waves
+
+  // Scaling factors — get harder each wave
+  const hpScale = 1 + waveNum * 0.12;
+  const countScale = 1 + tier * 0.5;
+  const intervalScale = Math.max(0.3, 1.0 - tier * 0.06);
+
+  // Pick enemy types based on progression tier
+  const progIdx = Math.min(Math.floor(tier * 1.5), ENEMY_PROGRESSION.length - 1);
+  const mainType = ENEMY_PROGRESSION[Math.max(0, progIdx)];
+  const fillType = ENEMY_PROGRESSION[Math.max(0, progIdx - 1)] || 'basic';
+
+  if (isBossWave) {
+    const bossIdx = Math.min(Math.floor(tier * 0.7), BOSS_PROGRESSION.length - 1);
+    const bossType = BOSS_PROGRESSION[bossIdx];
+    const bossCount = 1 + Math.floor(tier / 3);
+    const bossInterval = Math.max(5000, 15000 - tier * 500);
+    const escortCount = Math.round(10 * countScale);
+    const escortInterval = Math.round(600 * intervalScale);
+    return [
+      { type: bossType, count: bossCount, interval: bossInterval, delay: 0 },
+      { type: mainType, count: escortCount, interval: escortInterval, delay: 2000 },
+    ];
+  }
+
+  const mainCount = Math.round((8 + tier * 4) * countScale);
+  const mainInterval = Math.round(800 * intervalScale);
+  const fillCount = Math.round((4 + tier * 2) * countScale);
+  const fillInterval = Math.round(600 * intervalScale);
+
+  const groups = [
+    { type: mainType, count: mainCount, interval: mainInterval, delay: 0 },
+  ];
+  if (tier >= 1) {
+    groups.push({ type: fillType, count: fillCount, interval: fillInterval, delay: 2000 });
+  }
+  return groups;
+}
+
+function getWaveDef(waveIndex) {
+  if (waveIndex < WAVE_DEFS.length) return WAVE_DEFS[waveIndex];
+  return getProceduralWave(waveIndex);
+}
 
 // ============================================================
 // GAME STATE
@@ -1405,7 +1430,7 @@ function initKeyboardShortcuts() {
     if (TOWER_HOTKEYS[e.key]) { e.preventDefault(); selectTower(TOWER_HOTKEYS[e.key]); return; }
     switch (e.key) {
       case ' ': e.preventDefault();
-        if (!waveInProgress && !waveCountdownActive && currentWave < TOTAL_WAVES) startNextWave(); break;
+        if (!waveInProgress && !waveCountdownActive && !gameOver) startNextWave(); break;
       case 'p': case 'P': e.preventDefault(); togglePause(); break;
       case 'f': case 'F': e.preventDefault(); toggleSpeed(); break;
       case 'a': case 'A': e.preventDefault(); toggleAutoWave(); break;
@@ -1463,9 +1488,8 @@ function resetGameState() {
   particles = [];
   floatingTexts = [];
   spawnQueues = [];
-  const diffSettings = DIFFICULTY_SETTINGS[gameDifficulty];
-  hp = diffSettings.hp;
-  gold = diffSettings.gold;
+  hp = GAME_SETTINGS.hp;
+  gold = GAME_SETTINGS.gold;
   score = 0;
   currentWave = 0;
   currentStage = 1;
@@ -1677,7 +1701,6 @@ function updateWaveCountdown(dt) {
 // ============================================================
 function startNextWave() {
   if (waveInProgress || gameOver || stageTransition) return;
-  if (currentWave >= TOTAL_WAVES) return;
   if (waveCountdownActive) return;
 
   // 3-second countdown before wave starts
@@ -1689,7 +1712,6 @@ function startNextWave() {
 
 function _doStartNextWave() {
   if (waveInProgress || gameOver || stageTransition) return;
-  if (currentWave >= TOTAL_WAVES) return;
 
   sfxWaveStart();
   waveInProgress = true;
@@ -1697,7 +1719,7 @@ function _doStartNextWave() {
   waveStartTime = performance.now();
   spawnQueues = [];
 
-  const waveDef = WAVE_DEFS[currentWave];
+  const waveDef = getWaveDef(currentWave);
   waveEnemyTotal = 0;
   waveEnemyKilled = 0;
   for (const group of waveDef) {
@@ -1729,16 +1751,17 @@ function updateSpawns(timestamp) {
 
 function spawnEnemy(type) {
   const def = ENEMY_DEFS[type];
-  const diffSettings = DIFFICULTY_SETTINGS[gameDifficulty];
+  // Wave-based scaling: enemy stats grow progressively each wave
+  const waveScale = 1 + currentWave * 0.04;
   const enemy = _enemyPool.pop() || {};
   enemy.type = type;
-  const adjustedHp = Math.round(def.hp * diffSettings.enemyHpMultiplier);
-  const adjustedSpeed = Math.round(def.speed * diffSettings.enemySpeedMultiplier);
+  const adjustedHp = Math.round(def.hp * waveScale);
+  const adjustedSpeed = Math.round(def.speed * Math.min(2.0, 1 + currentWave * 0.008));
   enemy.hp = adjustedHp;
   enemy.maxHp = adjustedHp;
   enemy.speed = adjustedSpeed;
   enemy.baseSpeed = adjustedSpeed;
-  enemy.reward = Math.round(def.reward * (diffSettings.enemyRewardMultiplier || 1.0));
+  enemy.reward = Math.round(def.reward * Math.min(3.0, 1 + currentWave * 0.02));
   enemy.color = def.color;
   enemy.size = def.size;
   enemy.score = def.score;
@@ -1785,47 +1808,43 @@ function checkWaveEnd() {
     waveInProgress = false;
     recycleEnemies();
 
-    if (currentWave >= TOTAL_WAVES && !gameOver) {
-      // All waves completed - ultimate victory!
-      victory = true;
-      gameOver = true;
-      showOverlay(true);
-    } else if (currentWave % WAVES_PER_STAGE === 0 && !gameOver) {
-      // Stage complete - transition to next stage
-      const completedStage = currentWave / WAVES_PER_STAGE;
-      const nextStage = completedStage + 1;
-      const stageData = STAGE_INFO[completedStage]; // 0-indexed, so completedStage index = completedStage
-      currentStage = nextStage;
-      stageTransition = true;
-      gold += stageData.bonusGold;
-      score += stageData.bonusScore;
-      checkAchievements();
-      // Stage clear announcement
-      spawnFloatingText(canvas.width / 2, canvas.height * 0.35,
-        '🏆 ' + completedStage + '단계 클리어!', '#ffd700');
-      showStageTransition(completedStage, nextStage);
-    } else {
-      document.getElementById('start-wave-btn').disabled = false;
-      const diffSettings = DIFFICULTY_SETTINGS[gameDifficulty];
-      // Bonus gold between waves (scales with stage), modified by difficulty
-      const baseWaveBonusGold = 20 + currentStage * 5;
-      const waveBonusGold = Math.floor(baseWaveBonusGold * (diffSettings.waveGoldMultiplier || 1.0));
-      const interestGold = Math.min(80, Math.floor(gold * 0.02));
-      gold += waveBonusGold + interestGold;
-      spawnWaveClearCelebration(currentWave, waveBonusGold, interestGold);
-      // HP regen on wave clear — use difficulty settings (hard mode: no regen)
-      const hpRegenAmount = diffSettings.hpRegenPerWave || 0;
-      const maxHpCap = diffSettings.maxHp || 20;
-      if (hpRegenAmount > 0 && hp < maxHpCap) {
-        hp = Math.min(maxHpCap, hp + hpRegenAmount);
-        spawnFloatingText(canvas.width / 2, canvas.height * 0.45, '+1 HP', '#ff6b6b', 14);
-        uiDirty = true;
-      }
-      // Auto-wave: start next wave after a short delay
-      if (autoWaveEnabled) {
-        setTimeout(() => {
-          if (autoWaveEnabled && !waveInProgress && !gameOver && !stageTransition) startNextWave();
-        }, 500);
+    if (!gameOver) {
+      // Every 5 waves: stage theme transition (cycles through STAGE_INFO themes)
+      if (currentWave % WAVES_PER_STAGE === 0) {
+        const completedStageCount = currentWave / WAVES_PER_STAGE;
+        const nextStageTheme = ((completedStageCount) % TOTAL_STAGES) + 1;
+        const stageInfoIdx = (completedStageCount - 1) % TOTAL_STAGES;
+        const stageData = STAGE_INFO[stageInfoIdx];
+        currentStage = nextStageTheme;
+        stageTransition = true;
+        gold += stageData.bonusGold;
+        score += stageData.bonusScore;
+        checkAchievements();
+        spawnFloatingText(canvas.width / 2, canvas.height * 0.35,
+          '🏆 ' + currentWave + '웨이브 클리어!', '#ffd700');
+        showStageTransition(completedStageCount, nextStageTheme);
+      } else {
+        document.getElementById('start-wave-btn').disabled = false;
+        // Bonus gold between waves (scales with wave number)
+        const baseWaveBonusGold = 20 + Math.floor(currentWave / 5) * 5;
+        const waveBonusGold = Math.floor(baseWaveBonusGold);
+        const interestGold = Math.min(80, Math.floor(gold * 0.02));
+        gold += waveBonusGold + interestGold;
+        spawnWaveClearCelebration(currentWave, waveBonusGold, interestGold);
+        // HP regen on wave clear
+        const hpRegenAmount = GAME_SETTINGS.hpRegenPerWave;
+        const maxHpCap = GAME_SETTINGS.maxHp;
+        if (hpRegenAmount > 0 && hp < maxHpCap) {
+          hp = Math.min(maxHpCap, hp + hpRegenAmount);
+          spawnFloatingText(canvas.width / 2, canvas.height * 0.45, '+1 HP', '#ff6b6b', 14);
+          uiDirty = true;
+        }
+        // Auto-wave: start next wave after a short delay
+        if (autoWaveEnabled) {
+          setTimeout(() => {
+            if (autoWaveEnabled && !waveInProgress && !gameOver && !stageTransition) startNextWave();
+          }, 500);
+        }
       }
     }
   }
@@ -1923,7 +1942,7 @@ function updateEnemies(dt) {
       sfxHpLoss();
       screenShakeDuration = 0.2;
       screenShakeIntensity = 4;
-      if (hp <= 0) { hp = 0; gameOver = true; showOverlay(false); }
+      if (hp <= 0) { hp = 0; gameOver = true; showOverlay(); }
       continue;
     }
     const target = PATH_WAYPOINTS[enemy.waypointIndex];
@@ -2788,8 +2807,7 @@ function updateUI() {
     const hpEl = document.getElementById('hp-display');
     hpEl.textContent = hp;
     // Color HP display based on how low it is relative to max
-    const diffSettings = DIFFICULTY_SETTINGS[gameDifficulty];
-    const maxHp = diffSettings.maxHp || 20;
+    const maxHp = GAME_SETTINGS.maxHp;
     const hpRatio = hp / maxHp;
     hpEl.style.color = hpRatio <= 0.2 ? '#e74c3c' : hpRatio <= 0.5 ? '#f39c12' : '';
     const hpMaxEl = document.getElementById('hp-max-display');
@@ -2804,7 +2822,7 @@ function updateUI() {
     if (gold >= 1000) checkAchievements();
   }
   if (currentWave !== prevUiWave) {
-    document.getElementById('wave-display').textContent = `${currentWave}/${TOTAL_WAVES}`;
+    document.getElementById('wave-display').textContent = `${currentWave}`;
     prevUiWave = currentWave;
   }
   if (score !== prevUiScore) {
@@ -2835,7 +2853,7 @@ function updateUI() {
     if (startBtn) {
       if (waveCountdownActive) {
         startBtn.textContent = `⏳ ${cdCeil}초...`;
-      } else if (!waveInProgress && currentWave < TOTAL_WAVES) {
+      } else if (!waveInProgress && !gameOver) {
         startBtn.textContent = '▶ 웨이브 시작';
       }
     }
@@ -2862,7 +2880,7 @@ function updateUI() {
   if (previewKey !== prevWavePreviewKey) {
     const previewEl = document.getElementById('wave-preview');
     if (previewEl) {
-      if (currentWave < TOTAL_WAVES && !waveInProgress) {
+      if (!gameOver && !waveInProgress) {
         previewEl.innerHTML = getNextWavePreview(currentWave);
         previewEl.style.display = '';
       } else {
@@ -2874,8 +2892,7 @@ function updateUI() {
 }
 
 function getNextWavePreview(waveIdx) {
-  if (waveIdx >= WAVE_DEFS.length) return '';
-  const waveDef = WAVE_DEFS[waveIdx];
+  const waveDef = getWaveDef(waveIdx);
   const ICONS = {
     basic:'👾', fast:'💨', tank:'🛡️', boss:'👹',
     elite:'⚔️', phantom:'👻', golem:'🗿', dragon:'🐉',
@@ -2975,34 +2992,22 @@ function getWaveThreatLevel(waveIdx) {
   return            { level: 1, label: '🟢 쉬움', color: '#00ff88' };
 }
 
-function showOverlay(won) {
+function showOverlay() {
   stopBgm();
   const overlay = document.getElementById('overlay');
   overlay.style.display = 'flex';
-  const { grade, color: gradeColor } = getScoreGrade(score, won);
+  const { grade, color: gradeColor } = getScoreGrade(score, false);
   const gradeHTML = `<div id="score-grade" style="font-size:2.8em;font-weight:bold;color:${gradeColor};text-shadow:0 0 20px ${gradeColor};margin:6px 0;">${grade}</div>`;
-  const diffTag = gameDifficulty === 'hard' ? ' <span style="color:#e94560;font-weight:bold;">[하드]</span>' : '';
-  if (won) {
-    document.getElementById('overlay-title').textContent = '🏆 최종 승리!';
-    document.getElementById('overlay-title').style.color = '#ffd700';
-    const { pb: pbWin } = savePersonalBest(score, currentWave, totalKills, maxCombo, true);
-    const pbWinHTML = getPersonalBestHTML();
-    const isNewBestWin = pbWin.bestScore === score ? ' <span style="color:#ffd700;font-size:0.8em">★ 최고기록!</span>' : '';
-    document.getElementById('overlay-msg').innerHTML =
-      `축하합니다! 10단계 ${TOTAL_WAVES}웨이브 클리어!${diffTag}<br>최종 ���수: ${score.toLocaleString()}${isNewBestWin}${gradeHTML}처치: ${totalKills}마리 | 최대 콤보: ${maxCombo}연속<br><small style="color:#aaa">업적: ${getAchievementProgressHTML()}</small>${pbWinHTML}`;
-    sfxVictory();
-    spawnVictoryFireworks();
-  } else {
-    document.getElementById('overlay-title').textContent = '💀 게임 오버';
-    document.getElementById('overlay-title').style.color = '#e94560';
-    const { pb: pbLose } = savePersonalBest(score, currentWave, totalKills, maxCombo, false);
-    const pbLoseHTML = getPersonalBestHTML();
-    document.getElementById('overlay-msg').innerHTML =
-      `적이 성에 도달했습니다.${diffTag}<br>최종 점수: ${score.toLocaleString()} | 웨이브: ${currentWave} | ${currentStage}단계${gradeHTML}처��: ${totalKills}마리 | 최대 콤보: ${maxCombo}연속<br><small style="color:#aaa">업적: ${getAchievementProgressHTML()}</small>${pbLoseHTML}`;
-    sfxGameOver();
-  }
+  document.getElementById('overlay-title').textContent = '💀 게임 오버';
+  document.getElementById('overlay-title').style.color = '#e94560';
+  const { pb: pbLose } = savePersonalBest(score, currentWave, totalKills, maxCombo, false);
+  const pbLoseHTML = getPersonalBestHTML();
+  const isNewBestWave = pbLose && pbLose.bestWave === currentWave && currentWave > 0 ? ' <span style="color:#ffd700;font-size:0.8em">★ 최고 웨이브!</span>' : '';
+  document.getElementById('overlay-msg').innerHTML =
+    `적이 성에 도달했습니다.<br>🌊 생존 웨이브: <b>${currentWave}</b>${isNewBestWave} | 최종 점수: ${score.toLocaleString()}${gradeHTML}처치: ${totalKills}마리 | 최대 콤보: ${maxCombo}연속<br><small style="color:#aaa">업적: ${getAchievementProgressHTML()}</small>${pbLoseHTML}`;
+  sfxGameOver();
   // Submit score to server
-  submitScore(won ? 'victory' : 'defeat');
+  submitScore('defeat');
 }
 
 // ── VICTORY FIREWORKS ────────────────────────────────────
