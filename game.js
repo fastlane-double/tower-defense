@@ -247,15 +247,14 @@ function savePersonalBest(newScore, newWave, newKills, newCombo, won) {
 
 function getPersonalBestHTML() {
   const pb = getPersonalBest();
-  if (!pb.bestScore) return '';
+  if (!pb.bestWave && !pb.bestScore) return '';
   return [
     '<div style="margin-top:8px;padding:6px 10px;background:rgba(255,215,0,0.08);border:1px solid #ffd70044;border-radius:6px;font-size:0.82em;color:#ccc;">',
     '<span style="color:#ffd700;font-weight:bold;">🏅 최고 기록</span>  ',
-    `점수: <b style="color:#ffd700">${pb.bestScore.toLocaleString()}</b>  `,
-    `웨이브: <b>${pb.bestWave}</b>  `,
+    `🌊 웨이브: <b style="color:#ffd700">${pb.bestWave || 0}</b>  `,
+    `점수: <b>${pb.bestScore ? pb.bestScore.toLocaleString() : 0}</b>  `,
     `처치: <b>${pb.bestKills || 0}</b>  `,
-    `콤보: <b>${pb.bestCombo || 0}</b>  `,
-    `승리: <b>${pb.victories || 0}</b>회`,
+    `콤보: <b>${pb.bestCombo || 0}</b>`,
     '</div>',
   ].join('');
 }
@@ -1850,20 +1849,22 @@ function checkWaveEnd() {
   }
 }
 
-function showStageTransition(completedStage, nextStage) {
+function showStageTransition(completedStageCount, nextStage) {
   const overlay = document.getElementById('stage-transition-overlay');
-  const stageData = STAGE_INFO[completedStage]; // data for completed stage
-  const nextData = STAGE_INFO[nextStage - 1];   // data for next stage (0-indexed)
+  const stageInfoIdx = (completedStageCount - 1) % TOTAL_STAGES;
+  const stageData = STAGE_INFO[stageInfoIdx];
+  const nextIdx = (nextStage - 1) % TOTAL_STAGES;
+  const nextData = STAGE_INFO[nextIdx];
   const content = document.getElementById('stage-transition-content');
   if (content) {
-    const stageEmojis = ['', '🌿', '🌲', '🏜️', '❄️', '🌋', '👿', '🌀', '🌌', '☄️', '💀'];
-    const nextEmoji = stageEmojis[nextStage] || '⚔️';
+    const stageEmojis = ['🌿', '🌲', '🏜️', '❄️', '🌋', '👿', '🌀', '🌌', '☄️', '💀'];
+    const nextEmoji = stageEmojis[nextIdx] || '⚔️';
     content.innerHTML = `
-      <div class="stage-badge">${nextEmoji} ${completedStage}단계 클리어!</div>
-      <h1>${nextData ? nextData.name : '최종 클리어!'}</h1>
+      <div class="stage-badge">${nextEmoji} ${currentWave}웨이브 돌파!</div>
+      <h1>${nextData ? nextData.name : '새로운 지역!'}</h1>
       <p>보너스: 💰${stageData.bonusGold} 코인 | 🏆+${stageData.bonusScore} 점수 획득!</p>
       <div class="stage2-warning">
-        <p>다음 단계에서 더 강력한 적이 등장합니다!</p>
+        <p>더 강력한 적들이 나타납니다!</p>
       </div>
       <p class="stage-auto">잠시 후 자동으로 시작됩니다...</p>
     `;
@@ -2830,10 +2831,8 @@ function updateUI() {
     prevUiScore = score;
   }
   if (currentStage !== prevUiStage) {
-    const stageEl = document.getElementById('stage-display');
-    if (stageEl) stageEl.textContent = `${currentStage}/10`;
     const stageNameEl = document.getElementById('stage-name-display');
-    if (stageNameEl) stageNameEl.textContent = STAGE_INFO[currentStage - 1]?.name || '';
+    if (stageNameEl) stageNameEl.textContent = STAGE_INFO[(currentStage - 1) % TOTAL_STAGES]?.name || '';
     prevUiStage = currentStage;
     mapCacheDirty = true;
     updatePremiumUI();
@@ -2933,17 +2932,15 @@ function updateNukeBombUI() {
   }
 }
 
-function getScoreGrade(s, won) {
-  if (!won) {
-    if (s >= 50000) return { grade: 'B', color: '#4fc3f7' };
-    if (s >= 20000) return { grade: 'C', color: '#aaa' };
-    return { grade: 'D', color: '#888' };
-  }
-  if (s >= 300000) return { grade: 'S+', color: '#ffd700' };
-  if (s >= 200000) return { grade: 'S',  color: '#ffd700' };
-  if (s >= 120000) return { grade: 'A',  color: '#00ff88' };
-  if (s >= 60000)  return { grade: 'B',  color: '#4fc3f7' };
-  return { grade: 'C', color: '#aaa' };
+function getScoreGrade() {
+  // Grade based on survived wave count (infinite mode)
+  const w = currentWave;
+  if (w >= 100) return { grade: 'S+', color: '#ffd700' };
+  if (w >= 70)  return { grade: 'S',  color: '#ffd700' };
+  if (w >= 50)  return { grade: 'A',  color: '#00ff88' };
+  if (w >= 30)  return { grade: 'B',  color: '#4fc3f7' };
+  if (w >= 15)  return { grade: 'C',  color: '#aaa' };
+  return { grade: 'D', color: '#888' };
 }
 
 
@@ -2971,8 +2968,7 @@ function spawnWaveClearCelebration(wave, bonusGold, interestGold) {
 
 // ── WAVE THREAT INDICATOR ────────────────────────────────────────────────────
 function getWaveThreatLevel(waveIdx) {
-  if (waveIdx >= WAVE_DEFS.length) return { level: 0, label: '', color: '#555' };
-  const waveDef = WAVE_DEFS[waveIdx];
+  const waveDef = getWaveDef(waveIdx);
   const bossTypes = ['finalBoss','worldeater','abomination','behemoth','hydra','lich','colossus','dragon','titan','boss'];
   const eliteTypes = ['apocalypse','voidbeast','demon','deathknight','mech','wraith','phantom','golem','elite'];
   let score = 0;
@@ -2996,7 +2992,7 @@ function showOverlay() {
   stopBgm();
   const overlay = document.getElementById('overlay');
   overlay.style.display = 'flex';
-  const { grade, color: gradeColor } = getScoreGrade(score, false);
+  const { grade, color: gradeColor } = getScoreGrade();
   const gradeHTML = `<div id="score-grade" style="font-size:2.8em;font-weight:bold;color:${gradeColor};text-shadow:0 0 20px ${gradeColor};margin:6px 0;">${grade}</div>`;
   document.getElementById('overlay-title').textContent = '💀 게임 오버';
   document.getElementById('overlay-title').style.color = '#e94560';
@@ -3187,7 +3183,7 @@ function tileRand(col, row, seed) {
 }
 
 function drawMap() {
-  const stageData = STAGE_INFO[currentStage - 1] || STAGE_INFO[0];
+  const stageData = STAGE_INFO[(currentStage - 1) % TOTAL_STAGES] || STAGE_INFO[0];
   const stage = currentStage;
 
   for (let r = 0; r < ROWS; r++) {

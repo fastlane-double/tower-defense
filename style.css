@@ -622,11 +622,6 @@ body {
   margin-top: 16px;
 }
 
-/* ── Stage indicator highlight ── */
-#stage-display {
-  color: #ffd700 !important;
-  font-weight: bold;
-}
 
 #canvas-container {
   flex: 1;
