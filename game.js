@@ -13,7 +13,7 @@ function isMobile() {
 // --- PREMIUM SYSTEM ---
 // Premium towers unlock via purchase. DEV_MODE bypasses the lock.
 // Some premium towers are "consumable" — they grant a limited number of uses per purchase.
-let DEV_MODE = false; // set true to unlock all premium towers free
+let DEV_MODE = new URLSearchParams(window.location.search).has('dev'); // ?dev → unlock all premium towers
 const PREMIUM_TOWER_TYPES = ['tesla', 'frost', 'flame', 'nuke', 'voidray', 'god'];
 // Track which premium towers are unlocked (persisted in localStorage)
 function getPremiumUnlocked() {
@@ -85,11 +85,16 @@ function consumeTower(type) {
 })();
 function toggleDevMode() {
   DEV_MODE = !DEV_MODE;
-  const btn = document.getElementById('dev-mode-btn');
-  if (btn) btn.textContent = DEV_MODE ? '🔓 개발 모드 ON' : '🔒 개발 모드 OFF';
+  updateDevModeUI();
   updateTowerButtons();
   updatePremiumUI();
 }
+function updateDevModeUI() {
+  const btn = document.getElementById('dev-mode-btn');
+  if (btn) btn.textContent = DEV_MODE ? '🔓 개발 모드 ON' : '🔒 개발 모드 OFF';
+}
+// Set initial button text if DEV_MODE was activated via URL
+if (DEV_MODE) document.addEventListener('DOMContentLoaded', updateDevModeUI);
 // Simulate purchase (in real game this calls payment API)
 function purchasePremiumTower(type) {
   const def = TOWER_DEFS[type];
@@ -951,8 +956,8 @@ const TOWER_DEFS = {
     premium: true,
     consumable: true,
     premiumPrice: '₩1,000',
-    premiumCoinCost: 9999,
-    premiumDesc: '전지전능한 궁극의 타워! 1회 사용 가능. 배치 시 소모됩니다.',
+    premiumCoinCost: 0,  // cash only — no game currency purchase
+    premiumDesc: '전지전능한 궁극의 타워! 1회 사용 가능. 배치 시 소모됩니다. (💳 실제 결제 전용)',
     upgrades: [
       { name: '천벌', cost: 300, description: '데미지 +500, 공격속도 +30%, 범위 +50%', apply: t => { t.damage += 500; t.fireRate = Math.floor(t.fireRate * 0.7); t.aoeRadius *= 1.5; } },
       { name: '심판', cost: 500, description: '데미지 +1000, 사거리 +2칸, 독 +50/초', apply: t => { t.damage += 1000; t.range += 2 * TILE; t.poisonDamage += 50; } },
@@ -2709,51 +2714,11 @@ async function buyNukeBombCash() {
   showPaymentNotif('결제 처리 중...', '#00bfff');
 
   try {
-    // 1. Create order on server
-    const orderRes = await fetch(API_BASE + '/api/payments/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id: 'nuke_bomb', player_name: playerName }),
-    });
-    if (!orderRes.ok) {
-      const err = await orderRes.json().catch(() => ({}));
-      throw new Error(err.error || '주문 생성 실패');
-    }
-    const order = await orderRes.json();
-
-    // 2. Try Toss Payments SDK checkout
-    const toss = await getTossPayments();
-    if (toss) {
-      await toss.requestPayment('카드', {
-        amount: order.amount,
-        orderId: order.orderId,
-        orderName: order.orderName,
-        successUrl: window.location.origin + '/payment-success.html',
-        failUrl: window.location.origin + '/payment-fail.html',
-        customerName: playerName,
-      });
-    } else {
-      // Test mode: auto-confirm
-      const testPaymentKey = 'test_' + Date.now();
-      const confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paymentKey: testPaymentKey,
-          orderId: order.orderId,
-          amount: order.amount,
-        }),
-      });
-      if (!confirmRes.ok) {
-        const err = await confirmRes.json().catch(() => ({}));
-        throw new Error(err.error || '결제 확인 실패');
-      }
-      const result = await confirmRes.json();
-      if (result.success) {
-        nukeBombs++;
-        updateNukeBombUI();
-        showPaymentNotif('✅ 핵폭탄 1개 구매 완료!', '#00ff88');
-      }
+    const result = await processPayment('nuke_bomb');
+    if (result.success) {
+      nukeBombs++;
+      updateNukeBombUI();
+      showPaymentNotif('✅ 핵폭탄 1개 구매 완료!', '#00ff88');
     }
   } catch (err) {
     console.error('Nuke bomb payment error:', err);
@@ -3446,18 +3411,39 @@ function closePurchaseModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// --- PAYMENT SYSTEM (Toss Payments Integration) ---
-const TOSS_CLIENT_KEY = window.TOSS_CLIENT_KEY || '';
-let _tossPayments = null;
+// --- PAYMENT SYSTEM ---
+// Instant payment: order + auto-confirm in one step (server records everything)
+async function processPayment(productId) {
+  // 1. Create order on server
+  const orderRes = await fetch(API_BASE + '/api/payments/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, player_name: playerName }),
+  });
+  if (!orderRes.ok) {
+    const err = await orderRes.json().catch(() => ({}));
+    throw new Error(err.error || '주문 생성 실패');
+  }
+  const order = await orderRes.json();
 
-async function getTossPayments() {
-  if (_tossPayments) return _tossPayments;
-  if (!TOSS_CLIENT_KEY || typeof TossPayments === 'undefined') return null;
-  _tossPayments = TossPayments(TOSS_CLIENT_KEY);
-  return _tossPayments;
+  // 2. Confirm payment immediately
+  const paymentKey = 'pay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      paymentKey,
+      orderId: order.orderId,
+      amount: order.amount,
+    }),
+  });
+  if (!confirmRes.ok) {
+    const err = await confirmRes.json().catch(() => ({}));
+    throw new Error(err.error || '결제 확인 실패');
+  }
+  return await confirmRes.json();
 }
 
-// Create order on server, then launch Toss Payments checkout
 async function confirmPurchase() {
   const modal = document.getElementById('purchase-modal');
   if (!modal) return;
@@ -3469,88 +3455,19 @@ async function confirmPurchase() {
   showPaymentNotif('결제 처리 중...', '#00bfff');
 
   try {
-    // 1. Create order on server
-    const orderRes = await fetch(API_BASE + '/api/payments/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id: type, player_name: playerName }),
-    });
-    if (!orderRes.ok) {
-      const err = await orderRes.json().catch(() => ({}));
-      throw new Error(err.error || '주문 생성 실패');
-    }
-    const order = await orderRes.json();
-
-    // 2. Try Toss Payments SDK checkout
-    const toss = await getTossPayments();
-    if (toss) {
-      // Production: Toss Payments widget
-      await toss.requestPayment('카드', {
-        amount: order.amount,
-        orderId: order.orderId,
-        orderName: order.orderName,
-        successUrl: window.location.origin + '/payment-success.html',
-        failUrl: window.location.origin + '/payment-fail.html',
-        customerName: playerName,
-      });
-      // Toss redirects the page — this code won't execute further
-    } else {
-      // Test mode: no Toss SDK — auto-confirm via server
-      const testPaymentKey = 'test_' + Date.now();
-      const confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paymentKey: testPaymentKey,
-          orderId: order.orderId,
-          amount: order.amount,
-        }),
-      });
-      if (!confirmRes.ok) {
-        const err = await confirmRes.json().catch(() => ({}));
-        throw new Error(err.error || '결제 확인 실패');
-      }
-      const result = await confirmRes.json();
-
-      // 3. Unlock the tower locally
-      if (result.success) {
-        unlockPremiumTower(type);
-        updateTowerButtons();
-        updatePremiumUI();
-        const label = def.consumable
-          ? `${def.name} 1회 사용권 구매 완료!`
-          : `${def.name} 영구 잠금 해제!`;
-        showPaymentNotif('✅ ' + label, '#00ff88');
-      }
+    const result = await processPayment(type);
+    if (result.success) {
+      unlockPremiumTower(type);
+      updateTowerButtons();
+      updatePremiumUI();
+      const label = def.consumable
+        ? `${def.name} 1회 사용권 구매 완료!`
+        : `${def.name} 영구 잠금 해제!`;
+      showPaymentNotif('✅ ' + label, '#00ff88');
     }
   } catch (err) {
     console.error('Payment error:', err);
     showPaymentNotif('결제 실패: ' + err.message, '#ff4444');
-  }
-}
-
-// Confirm payment after Toss Payments redirect (called from success page)
-async function confirmPaymentFromRedirect(paymentKey, orderId, amount) {
-  try {
-    const confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
-    });
-    if (!confirmRes.ok) {
-      const err = await confirmRes.json().catch(() => ({}));
-      throw new Error(err.error || '결제 확인 실패');
-    }
-    const result = await confirmRes.json();
-    if (result.success && result.productId) {
-      unlockPremiumTower(result.productId);
-      updateTowerButtons();
-      updatePremiumUI();
-    }
-    return result;
-  } catch (err) {
-    console.error('Payment confirm error:', err);
-    throw err;
   }
 }
 
