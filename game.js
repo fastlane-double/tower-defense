@@ -2647,14 +2647,15 @@ const NUKE_BOMB_DAMAGE    = 9999;  // effectively kills everything
 const NUKE_BOMB_RADIUS    = TILE * 4.5; // huge AoE
 
 function buyNukeBombCash() {
-  // Simulated cash purchase: $1 = 3 bombs (real payment only, no game currency)
-  nukeBombs += 3;
-  updateNukeBombUI();
+  // Payment gateway not yet connected — show "coming soon" notice
   const notif = document.createElement('div');
   notif.className = 'unlock-notif';
-  notif.textContent = `✅ 핵폭탄 3개 구매 완료! (총 ${nukeBombs}개)`;
+  notif.style.background = '#1a1a2e';
+  notif.style.border = '1px solid #ffd700';
+  notif.style.color = '#ffd700';
+  notif.textContent = '🚧 결제 시스템 준비 중입니다. 곧 오픈 예정!';
   document.getElementById('game-container').appendChild(notif);
-  setTimeout(() => notif.remove(), 3000);
+  setTimeout(() => notif.remove(), 4000);
 }
 
 function toggleNukeBombMode() {
@@ -3317,21 +3318,17 @@ function closePurchaseModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// Simulated purchase: in production, calls payment gateway
+// Payment gateway not yet connected — show "coming soon" notice
 function confirmPurchase() {
-  const modal = document.getElementById('purchase-modal');
-  if (!modal) return;
-  const type = modal.dataset.towerType;
-  unlockPremiumTower(type);
   closePurchaseModal();
-  updateTowerButtons();
-  updatePremiumUI();
-  // Show unlock notification
   const notif = document.createElement('div');
   notif.className = 'unlock-notif';
-  notif.textContent = `✅ ${TOWER_DEFS[type].name} 잠금 해제!`;
+  notif.style.background = '#1a1a2e';
+  notif.style.border = '1px solid #ffd700';
+  notif.style.color = '#ffd700';
+  notif.textContent = '🚧 결제 시스템 준비 중입니다. 곧 오픈 예정!';
   document.getElementById('game-container').appendChild(notif);
-  setTimeout(() => notif.remove(), 3000);
+  setTimeout(() => notif.remove(), 4000);
 }
 
 // Coin-based purchase for premium towers
