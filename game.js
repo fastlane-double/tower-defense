@@ -88,13 +88,18 @@ function toggleDevMode() {
   updateDevModeUI();
   updateTowerButtons();
   updatePremiumUI();
+  updateNukeBombUI();
 }
 function updateDevModeUI() {
   const btn = document.getElementById('dev-mode-btn');
-  if (btn) btn.textContent = DEV_MODE ? '🔓 개발 모드 ON' : '🔒 개발 모드 OFF';
+  if (btn) btn.textContent = DEV_MODE ? '🔓 개발 모드 ON (무제한)' : '🔒 개발 모드 OFF';
 }
-// Set initial button text if DEV_MODE was activated via URL
-if (DEV_MODE) document.addEventListener('DOMContentLoaded', updateDevModeUI);
+// Set initial UI state if DEV_MODE was activated via URL
+if (DEV_MODE) document.addEventListener('DOMContentLoaded', () => {
+  updateDevModeUI();
+  updatePremiumUI();
+  updateNukeBombUI();
+});
 // Simulate purchase (in real game this calls payment API)
 function purchasePremiumTower(type) {
   const def = TOWER_DEFS[type];
@@ -2630,7 +2635,8 @@ function tryPlaceTower(col, row, type) {
   gold -= scaledCost;
   towerPurchaseCount[type] = (towerPurchaseCount[type] || 0) + 1;
   // Consume one use for consumable towers (e.g. god tower)
-  if (def.consumable) {
+  // In DEV_MODE: skip consumption — unlimited uses
+  if (def.consumable && !DEV_MODE) {
     consumeTower(type);
     selectedTowerType = null; // deselect after consumable placement
   }
@@ -2751,7 +2757,7 @@ async function buyNukeBombCash() {
 }
 
 function toggleNukeBombMode() {
-  if (nukeBombs <= 0) return;
+  if (nukeBombs <= 0 && !DEV_MODE) return;
   nukeBombMode = !nukeBombMode;
   if (nukeBombMode) {
     selectedTowerType = null;
@@ -2764,9 +2770,9 @@ function toggleNukeBombMode() {
 }
 
 function dropNukeBomb(mx, my) {
-  if (nukeBombs <= 0) { nukeBombMode = false; updateNukeBombUI(); return; }
+  if (nukeBombs <= 0 && !DEV_MODE) { nukeBombMode = false; updateNukeBombUI(); return; }
   if (nukeCinematic) return; // already playing a cinematic
-  nukeBombs--;
+  if (!DEV_MODE) nukeBombs--;
   nukeBombMode = false;
   updateNukeBombUI();
 
@@ -3224,7 +3230,15 @@ function updatePremiumUI() {
     if (lockEl) lockEl.style.display = locked ? 'flex' : 'none';
     const priceEl = btn.querySelector('.tower-cost');
     if (priceEl) {
-      if (def.consumable) {
+      if (DEV_MODE) {
+        // Dev mode: show unlimited for consumable, free for all
+        if (def.consumable) {
+          priceEl.textContent = '♾️ 무제한';
+        } else {
+          const currentCost = getTowerCost(type);
+          priceEl.textContent = `💰 ${currentCost}`;
+        }
+      } else if (def.consumable) {
         const count = getConsumableCount(type);
         priceEl.textContent = count > 0 ? `${count}회 남음` : `🔒 ${def.premiumPrice}`;
       } else {
@@ -3793,17 +3807,32 @@ function getNextWavePreview(waveIdx) {
 
 function updateNukeBombUI() {
   const countEl = document.getElementById('nuke-bomb-count');
-  if (countEl) countEl.textContent = nukeBombs;
+  if (countEl) countEl.textContent = DEV_MODE ? '∞' : nukeBombs;
   const useBtn = document.getElementById('nuke-bomb-use-btn');
   if (useBtn) {
     if (nukeBombMode) {
       useBtn.textContent = '☢️ 폭탄 투하 중... (취소: 다시 클릭)';
       useBtn.style.background = '#ff4500';
     } else {
-      useBtn.textContent = '☢️ 핵폭탄 투하 (클릭으로 지점 선택)';
-      useBtn.style.background = nukeBombs > 0 ? '#8b0000' : '#333';
+      useBtn.textContent = DEV_MODE
+        ? '☢️ 핵폭탄 투하 ♾️ 무제한'
+        : '☢️ 핵폭탄 투하 (클릭으로 지점 선택)';
+      useBtn.style.background = (nukeBombs > 0 || DEV_MODE) ? '#8b0000' : '#333';
     }
-    useBtn.disabled = nukeBombs <= 0 && !nukeBombMode;
+    useBtn.disabled = nukeBombs <= 0 && !nukeBombMode && !DEV_MODE;
+  }
+  // Show/hide buy button in DEV_MODE (no need to buy)
+  const buyBtn = document.getElementById('nuke-bomb-buy-cash-btn');
+  if (buyBtn) buyBtn.style.display = DEV_MODE ? 'none' : '';
+  // Update section label
+  const section = document.getElementById('nuke-bomb-section');
+  if (section) {
+    const labelEl = section.children[0]; // first child div = label
+    if (labelEl && labelEl.tagName === 'DIV') {
+      labelEl.innerHTML = DEV_MODE
+        ? '💣 핵폭탄 스킬 <span style="font-size:0.85em;color:#00ff88;">♾️ 무제한 모드</span>'
+        : '💣 핵폭탄 스킬 <span style="font-size:0.85em;color:#ffd700;">💳 실제 결제 전용</span>';
+    }
   }
 }
 
