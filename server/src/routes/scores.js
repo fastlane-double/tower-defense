@@ -123,11 +123,14 @@ router.post('/', (req, res) => {
   if (!player_name || typeof player_name !== 'string' || player_name.trim().length === 0) {
     return res.status(400).json({ error: 'player_name is required' });
   }
-  if (typeof score !== 'number' || !Number.isInteger(score) || score < 0) {
-    return res.status(400).json({ error: 'score must be a non-negative integer' });
+  if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 100_000_000) {
+    return res.status(400).json({ error: 'score must be a non-negative integer (max 100,000,000)' });
   }
-  if (wave !== undefined && (typeof wave !== 'number' || !Number.isInteger(wave) || wave < 1)) {
-    return res.status(400).json({ error: 'wave must be a positive integer' });
+  if (wave !== undefined && (typeof wave !== 'number' || !Number.isInteger(wave) || wave < 1 || wave > 10_000)) {
+    return res.status(400).json({ error: 'wave must be a positive integer (max 10,000)' });
+  }
+  if (duration_seconds !== undefined && (typeof duration_seconds !== 'number' || duration_seconds < 0 || duration_seconds > 86400)) {
+    return res.status(400).json({ error: 'duration_seconds must be between 0 and 86400' });
   }
 
   const id = uuidv4();

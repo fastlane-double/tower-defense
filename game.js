@@ -19,7 +19,10 @@ function isMobile() {
 // --- PREMIUM SYSTEM ---
 // Premium towers unlock via purchase. DEV_MODE bypasses the lock.
 // Some premium towers are "consumable" — they grant a limited number of uses per purchase.
-let DEV_MODE = new URLSearchParams(window.location.search).has('dev'); // ?dev → unlock all premium towers
+let DEV_MODE = (function() {
+  const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+  return isLocal && new URLSearchParams(window.location.search).has('dev');
+})(); // ?dev → unlock all premium towers (localhost only)
 const PREMIUM_TOWER_TYPES = ['tesla', 'frost', 'flame', 'nuke', 'voidray', 'god'];
 // Track which premium towers are unlocked (persisted in localStorage)
 function getPremiumUnlocked() {

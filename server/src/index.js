@@ -2,6 +2,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 
@@ -28,7 +29,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use(express.json());
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // game uses inline scripts/styles
+  crossOriginEmbedderPolicy: false,
+}));
+
+app.use(express.json({ limit: '1kb' }));
 
 // Request logging
 app.use((req, res, next) => {
@@ -62,6 +69,17 @@ app.use('/api', generalLimiter);
 
 // Apply strict rate limit to score submission specifically
 app.post('/api/scores', scoreSubmitLimiter);
+
+// Payment rate limit: 5 payment operations per minute per IP
+const paymentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many payment requests. Try again in a minute.' },
+});
+app.post('/api/payments/orders', paymentLimiter);
+app.post('/api/payments/confirm', paymentLimiter);
 
 // Routes
 app.use('/api/scores', scoresRouter);

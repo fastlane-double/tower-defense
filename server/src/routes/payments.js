@@ -95,9 +95,12 @@ router.post('/confirm', async (req, res) => {
     return res.status(400).json({ error: 'Amount mismatch' });
   }
 
-  // If no Toss secret key configured, use test mode (auto-approve)
+  // If no Toss secret key configured, use test mode (auto-approve) — dev only
+  if (!TOSS_SECRET_KEY && process.env.NODE_ENV === 'production') {
+    return res.status(503).json({ error: 'Payment service not configured' });
+  }
   if (!TOSS_SECRET_KEY) {
-    // Test mode: approve payment without calling Toss API
+    // Test mode: approve payment without calling Toss API (non-production only)
     db.prepare(`
       UPDATE payment_orders
       SET status = 'paid', payment_key = ?, updated_at = datetime('now')
