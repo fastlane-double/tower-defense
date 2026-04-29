@@ -1834,13 +1834,17 @@ function _doStartNextWave() {
   spawnQueues = [];
 
   const waveDef = getWaveDef(currentWave);
+  // Wave-based mob count scaling: gradually increase enemy count each wave
+  // Starts at 1.0x (wave 0) and grows by 3% per wave
+  const countMultiplier = 1 + currentWave * 0.03;
   waveEnemyTotal = 0;
   waveEnemyKilled = 0;
   for (const group of waveDef) {
-    waveEnemyTotal += group.count;
+    const scaledCount = Math.round(group.count * countMultiplier);
+    waveEnemyTotal += scaledCount;
     spawnQueues.push({
       type: group.type,
-      remaining: group.count,
+      remaining: scaledCount,
       interval: group.interval,
       delay: group.delay,
       nextSpawnAt: waveStartTime + group.delay,
@@ -3171,17 +3175,19 @@ function spawnWaveClearCelebration(wave, bonusGold, interestGold) {
 // ── WAVE THREAT INDICATOR ────────────────────────────────────────────────────
 function getWaveThreatLevel(waveIdx) {
   const waveDef = getWaveDef(waveIdx);
+  const countMultiplier = 1 + waveIdx * 0.03;
   const bossTypes = ['finalBoss','worldeater','abomination','behemoth','hydra','lich','colossus','dragon','titan','boss'];
   const eliteTypes = ['apocalypse','voidbeast','demon','deathknight','mech','wraith','phantom','golem','elite'];
   let score = 0;
   let totalCount = 0;
   for (const g of waveDef) {
-    totalCount += g.count;
-    if (bossTypes.includes(g.type)) score += g.count * 10;
-    else if (eliteTypes.includes(g.type)) score += g.count * 3;
-    else if (g.type === 'fast') score += g.count * 1.5;
-    else if (g.type === 'tank') score += g.count * 2;
-    else score += g.count;
+    const scaledCount = Math.round(g.count * countMultiplier);
+    totalCount += scaledCount;
+    if (bossTypes.includes(g.type)) score += scaledCount * 10;
+    else if (eliteTypes.includes(g.type)) score += scaledCount * 3;
+    else if (g.type === 'fast') score += scaledCount * 1.5;
+    else if (g.type === 'tank') score += scaledCount * 2;
+    else score += scaledCount;
   }
   if (score >= 80)  return { level: 5, label: '☠ 극한', color: '#ff0000' };
   if (score >= 40)  return { level: 4, label: '🔴 위험', color: '#ff4444' };
