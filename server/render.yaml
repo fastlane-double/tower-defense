@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: tower-defense-backend
+    runtime: docker
+    # Dockerfile lives in server/; build context is the repo root
+    # so static files (index.html, game.js, style.css) are accessible.
+    dockerfilePath: server/Dockerfile
+    # rootDirectory should be the repo root (default when not set)
+    plan: starter  # Use 'free' for free tier (no persistent disk)
+    region: singapore  # Closest to Korea; alternatives: ohio, frankfurt
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: CORS_ORIGINS
+        # Set this to your Render service URL after first deploy.
+        # Format: https://tower-defense-backend.onrender.com
+        # Multiple origins (comma-separated):
+        #   https://tower-defense-backend.onrender.com,https://yourdomain.com
+        sync: false
+      - key: TOSS_SECRET_KEY
+        # Toss Payments live secret key (sk_live_...).
+        # Leave unset to run in test/sandbox mode (payments auto-approved).
+        sync: false
+    # Persistent disk for SQLite data (requires paid Starter plan or above).
+    # Comment this section out if using the free tier
+    # (leaderboard data will reset on every redeploy).
+    disk:
+      name: tower-defense-data
+      mountPath: /app/server/data
+      sizeGB: 1
