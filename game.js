@@ -787,8 +787,8 @@ const TOWER_DEFS = {
     emoji: '🌩️',
     premium: true,
     premiumPrice: '₩1,200',
-    premiumCoinCost: 2400,
-    premiumDesc: '체인 번개로 여러 적을 동시에 감전!',
+    premiumCoinCost: 0,  // 결제 전용
+    premiumDesc: '체인 번개로 여러 적을 동시에 감전! (💳 실제 결제 전용)',
     upgrades: [
       { name: '과부하', cost: 150, description: '데미지 +40, 감전 범위 +50%', apply: t => { t.damage += 40; t.aoeRadius *= 1.5; } },
       { name: '연쇄 번개', cost: 220, description: '데미지 +60, 공격속도 +30%', apply: t => { t.damage += 60; t.fireRate = Math.floor(t.fireRate * 0.7); } },
@@ -813,8 +813,8 @@ const TOWER_DEFS = {
     emoji: '❄️',
     premium: true,
     premiumPrice: '₩900',
-    premiumCoinCost: 1800,
-    premiumDesc: '광역 빙결로 적 이동속도를 크게 감소!',
+    premiumCoinCost: 0,  // 결제 전용
+    premiumDesc: '광역 빙결로 적 이동속도를 크게 감소! (💳 실제 결제 전용)',
     upgrades: [
       { name: '냉동 강화', cost: 120, description: '광역 범위 +60%, 감속 90%', apply: t => { t.aoeRadius *= 1.6; t.slowFactor = 0.1; } },
       { name: '영구 빙결', cost: 180, description: '데미지 +20, 공격속도 +25%, 사거리 +0.5칸', apply: t => { t.damage += 20; t.fireRate = Math.floor(t.fireRate * 0.75); t.range += 0.5 * TILE; } },
@@ -839,8 +839,8 @@ const TOWER_DEFS = {
     emoji: '🔥',
     premium: true,
     premiumPrice: '₩900',
-    premiumCoinCost: 1800,
-    premiumDesc: '화염 폭발과 지속 화상 데미지!',
+    premiumCoinCost: 0,  // 결제 전용
+    premiumDesc: '화염 폭발과 지속 화상 데미지! (💳 실제 결제 전용)',
     upgrades: [
       { name: '업화', cost: 140, description: '데미지 +35, 화상 데미지 +10/초', apply: t => { t.damage += 35; t.poisonDamage += 10; } },
       { name: '광역 화염', cost: 200, description: '범위 +80%, 공격속도 +20%', apply: t => { t.aoeRadius *= 1.8; t.fireRate = Math.floor(t.fireRate * 0.8); } },
@@ -891,8 +891,8 @@ const TOWER_DEFS = {
     emoji: '🌌',
     premium: true,
     premiumPrice: '₩1,800',
-    premiumCoinCost: 3600,
-    premiumDesc: '초장거리 공허 광선. 단일 최강 피해!',
+    premiumCoinCost: 0,  // 결제 전용
+    premiumDesc: '초장거리 공허 광선. 단일 최강 피해! (💳 실제 결제 전용)',
     upgrades: [
       { name: '공허 증폭', cost: 200, description: '데미지 +100, 사거리 +1칸', apply: t => { t.damage += 100; t.range += 1 * TILE; } },
       { name: '분열 광선', cost: 300, description: '데미지 +150, 관통 효과 추가', apply: t => { t.damage += 150; t.piercing = true; } },
