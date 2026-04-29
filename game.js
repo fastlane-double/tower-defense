@@ -798,9 +798,9 @@ const TOWER_DEFS = {
     sellValue: 250,
     emoji: '☢️',
     premium: true,
-    premiumPrice: '₩2,400',
-    premiumCoinCost: 4800,
-    premiumDesc: '거대 핵 폭발로 광역 초대형 피해!',
+    premiumPrice: '$1.00',
+    premiumCoinCost: 0,  // real payment only — no game currency purchase
+    premiumDesc: '거대 핵 폭발로 광역 초대형 피해! (💳 실제 결제 전용)',
     upgrades: [
       { name: '핵탄두 강화', cost: 250, description: '데미지 +300, 범위 +30%', apply: t => { t.damage += 300; t.aoeRadius *= 1.3; } },
       { name: '방사능 오염', cost: 350, description: '방사성 데미지 +30/초, 발사속도 +20%', apply: t => { t.poisonDamage += 30; t.fireRate = Math.floor(t.fireRate * 0.8); } },
@@ -1326,6 +1326,7 @@ let hoveredCell = null;
 let selectedTower = null;  // currently clicked tower for upgrade shop
 let nukeBombs = 0;         // nuke bomb inventory
 let nukeBombMode = false;  // true when player is targeting a nuke drop
+let nukeCinematic = null;  // active nuke cinematic scene state (null = inactive)
 let speedMultiplier = 1;   // 1 = normal, 2 = fast
 let autoWaveEnabled = false; // auto-start next wave
 let gamePaused = false;      // pause toggle
@@ -1466,7 +1467,7 @@ function _startBackgroundLoop() {
   if (_bgInterval) return;
   _bgLastTime = performance.now();
   _bgInterval = setInterval(() => {
-    if (gameOver || gamePaused) return;
+    if (gameOver || gamePaused || nukeCinematic) return;
     const now = performance.now();
     const dt = Math.min((now - _bgLastTime) / 1000, 0.1);
     _bgLastTime = now;
@@ -1615,6 +1616,7 @@ function resetGameState() {
   selectedTower = null;
   nukeBombs = 0;
   nukeBombMode = false;
+  nukeCinematic = null;
   speedMultiplier = 1;
   autoWaveEnabled = false;
   gamePaused = false;
@@ -1675,10 +1677,19 @@ function gameLoop(timestamp) {
   const dt = Math.min((timestamp - lastTime) / 1000, 0.1); // seconds, capped
   lastTime = timestamp;
 
-  if (!gameOver && !gamePaused) {
+  // Always update cinematic (runs independently of game pause)
+  if (nukeCinematic) {
+    updateNukeCinematic(dt);
+  }
+
+  // Pause game logic during active cinematic (except fade/explode phases)
+  const cinematicPause = nukeCinematic && nukeCinematic.phase !== 'explode' && nukeCinematic.phase !== 'fade';
+  if (!gameOver && !gamePaused && !cinematicPause) {
     update(dt, timestamp);
   }
   render(timestamp);
+  // Draw cinematic overlay on top of everything
+  if (nukeCinematic) drawNukeCinematic();
   if (gamePaused) drawPauseOverlay();
   animId = requestAnimationFrame(gameLoop);
 }
@@ -2413,7 +2424,7 @@ function onMouseMove(e) {
 }
 
 function onCanvasClick(e) {
-  if (gameOver) return;
+  if (gameOver || nukeCinematic) return;
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
@@ -2503,7 +2514,7 @@ function onTouchEnd(e) {
 }
 
 function handleCanvasTap(mx, my) {
-  if (gameOver) return;
+  if (gameOver || nukeCinematic) return;
   const col = Math.floor(mx / TILE);
   const row = Math.floor(my / TILE);
   // Resume audio context on first touch (mobile autoplay policy)
@@ -2632,29 +2643,16 @@ function setSellMode() {
 // ============================================================
 // NUKE BOMB SKILL
 // ============================================================
-const NUKE_BOMB_COIN_COST = 500;   // 500 coins = 3 bombs
 const NUKE_BOMB_DAMAGE    = 9999;  // effectively kills everything
 const NUKE_BOMB_RADIUS    = TILE * 4.5; // huge AoE
 
 function buyNukeBombCash() {
-  // Simulated cash purchase: $1 = 3 bombs
+  // Simulated cash purchase: $1 = 3 bombs (real payment only, no game currency)
   nukeBombs += 3;
   updateNukeBombUI();
   const notif = document.createElement('div');
   notif.className = 'unlock-notif';
   notif.textContent = `✅ 핵폭탄 3개 구매 완료! (총 ${nukeBombs}개)`;
-  document.getElementById('game-container').appendChild(notif);
-  setTimeout(() => notif.remove(), 3000);
-}
-
-function buyNukeBombCoin() {
-  if (gold < NUKE_BOMB_COIN_COST) { flashGold(); return; }
-  gold -= NUKE_BOMB_COIN_COST;
-  nukeBombs += 3;
-  updateUI();
-  const notif = document.createElement('div');
-  notif.className = 'unlock-notif';
-  notif.textContent = `✅ 핵폭탄 3개 구매! (-💰${NUKE_BOMB_COIN_COST}, 총 ${nukeBombs}개)`;
   document.getElementById('game-container').appendChild(notif);
   setTimeout(() => notif.remove(), 3000);
 }
@@ -2674,30 +2672,13 @@ function toggleNukeBombMode() {
 
 function dropNukeBomb(mx, my) {
   if (nukeBombs <= 0) { nukeBombMode = false; updateNukeBombUI(); return; }
+  if (nukeCinematic) return; // already playing a cinematic
   nukeBombs--;
   nukeBombMode = false;
+  updateNukeBombUI();
 
-  // Deal damage to all enemies in radius (squared distance)
-  const nukeRadSq = NUKE_BOMB_RADIUS * NUKE_BOMB_RADIUS;
-  let killed = 0;
-  for (const enemy of enemies) {
-    if (enemy.dead || enemy.reached) continue;
-    const dx = enemy.x - mx;
-    const dy = enemy.y - my;
-    if (dx * dx + dy * dy <= nukeRadSq) {
-      dealDamage(enemy, NUKE_BOMB_DAMAGE, 1, 0);
-      killed++;
-    }
-  }
-
-  // Big nuclear explosion visual
-  spawnNukeExplosion(mx, my);
-  sfxNukeExplosion();
-
-  // Strong screen shake
-  screenShakeDuration = 0.4;
-  screenShakeIntensity = 9;
-
+  // Start cinematic sequence instead of instant damage
+  startNukeCinematic(mx, my);
   updateUI();
 }
 
@@ -2732,6 +2713,383 @@ function spawnNukeExplosion(x, y) {
     const life = 1.2 + Math.random() * 0.4;
     pushParticle(allocParticle(x + (Math.random() - 0.5) * 40, y, Math.cos(angle) * speed * 0.3, -(120 + Math.random() * 80), life, 1.6, '#888', 12 + Math.random() * 16));
   }
+}
+
+// ============================================================
+// NUKE CINEMATIC SCENE SYSTEM
+// ============================================================
+// Phases: 'dim' -> 'airplane' -> 'drop' -> 'flash' -> 'explode' -> 'done'
+const NUKE_SCENE = {
+  DIM_DURATION: 0.4,       // screen dims
+  AIRPLANE_DURATION: 1.6,  // airplane crosses screen
+  DROP_DURATION: 0.8,      // bomb falls to target
+  FLASH_DURATION: 0.15,    // white impact flash
+  EXPLODE_DURATION: 1.2,   // explosion + damage
+  FADE_DURATION: 0.5,      // fade back to normal
+};
+
+function startNukeCinematic(targetX, targetY) {
+  // Airplane enters from left, drops bomb above target, exits right
+  const airplaneY = TILE * 1.5; // fly near top of screen
+  nukeCinematic = {
+    phase: 'dim',
+    timer: 0,
+    targetX: targetX,
+    targetY: targetY,
+    // Airplane state
+    airplaneX: -TILE * 4, // start offscreen left
+    airplaneY: airplaneY,
+    airplaneDropX: targetX, // X position where bomb is released
+    airplaneDone: false,
+    // Bomb state
+    bombX: 0,
+    bombY: 0,
+    bombDropped: false,
+    bombAngle: 0,
+    // Visual state
+    dimAlpha: 0,
+    flashAlpha: 0,
+    // Letterbox
+    letterboxH: 0,
+  };
+  // Play approach sound
+  if (!soundMuted) {
+    playTone(120, 'sawtooth', 0.15, 1.2, 60);
+  }
+}
+
+function updateNukeCinematic(dt) {
+  if (!nukeCinematic) return;
+  const c = nukeCinematic;
+  c.timer += dt;
+
+  switch (c.phase) {
+    case 'dim': {
+      // Fade in dim overlay + letterbox bars
+      const t = Math.min(c.timer / NUKE_SCENE.DIM_DURATION, 1);
+      c.dimAlpha = t * 0.5;
+      c.letterboxH = t * TILE * 1.5;
+      if (c.timer >= NUKE_SCENE.DIM_DURATION) {
+        c.phase = 'airplane';
+        c.timer = 0;
+      }
+      break;
+    }
+    case 'airplane': {
+      // Airplane flies from left to right, drops bomb when above target
+      const t = Math.min(c.timer / NUKE_SCENE.AIRPLANE_DURATION, 1);
+      const startX = -TILE * 4;
+      const endX = canvas.width + TILE * 4;
+      c.airplaneX = startX + (endX - startX) * t;
+      c.dimAlpha = 0.5;
+
+      // Drop bomb when airplane is above target X
+      if (!c.bombDropped && c.airplaneX >= c.airplaneDropX) {
+        c.bombDropped = true;
+        c.bombX = c.airplaneX;
+        c.bombY = c.airplaneY;
+        // Bomb release sound
+        if (!soundMuted) {
+          playTone(400, 'sine', 0.2, 0.3, 200);
+        }
+      }
+
+      if (c.timer >= NUKE_SCENE.AIRPLANE_DURATION) {
+        c.phase = 'drop';
+        c.timer = 0;
+        if (!c.bombDropped) {
+          // Ensure bomb is dropped even if timing is off
+          c.bombDropped = true;
+          c.bombX = c.airplaneDropX;
+          c.bombY = c.airplaneY;
+        }
+      }
+      break;
+    }
+    case 'drop': {
+      // Bomb falls from airplane height to target with acceleration
+      const t = Math.min(c.timer / NUKE_SCENE.DROP_DURATION, 1);
+      const eased = t * t; // quadratic ease-in for acceleration feel
+      c.bombX = c.airplaneDropX; // bomb falls straight down
+      c.bombY = c.airplaneY + (c.targetY - c.airplaneY) * eased;
+      c.bombAngle = t * 0.3; // slight rotation during fall
+      c.dimAlpha = 0.5;
+
+      // Falling whistle sound
+      if (c.timer < 0.05 && !soundMuted) {
+        playTone(800, 'sine', 0.25, 0.7, 200);
+      }
+
+      if (t >= 1) {
+        c.phase = 'flash';
+        c.timer = 0;
+        // Apply damage at impact
+        applyNukeDamage(c.targetX, c.targetY);
+      }
+      break;
+    }
+    case 'flash': {
+      // Bright white flash at impact
+      const t = Math.min(c.timer / NUKE_SCENE.FLASH_DURATION, 1);
+      c.flashAlpha = 1 - t;
+      c.dimAlpha = 0.5 * (1 - t * 0.5);
+
+      if (c.timer < 0.05) {
+        // Trigger explosion particles + sound + shake
+        spawnNukeExplosion(c.targetX, c.targetY);
+        sfxNukeExplosion();
+        screenShakeDuration = 0.8;
+        screenShakeIntensity = 14;
+      }
+
+      if (t >= 1) {
+        c.phase = 'explode';
+        c.timer = 0;
+      }
+      break;
+    }
+    case 'explode': {
+      // Explosion plays out, camera settles
+      const t = Math.min(c.timer / NUKE_SCENE.EXPLODE_DURATION, 1);
+      c.dimAlpha = 0.5 * (1 - t);
+      c.letterboxH = TILE * 1.5 * (1 - t);
+
+      if (t >= 1) {
+        c.phase = 'fade';
+        c.timer = 0;
+      }
+      break;
+    }
+    case 'fade': {
+      const t = Math.min(c.timer / NUKE_SCENE.FADE_DURATION, 1);
+      c.dimAlpha = 0;
+      c.letterboxH = 0;
+      if (t >= 1) {
+        nukeCinematic = null; // cinematic complete
+      }
+      break;
+    }
+  }
+}
+
+function applyNukeDamage(mx, my) {
+  const nukeRadSq = NUKE_BOMB_RADIUS * NUKE_BOMB_RADIUS;
+  for (const enemy of enemies) {
+    if (enemy.dead || enemy.reached) continue;
+    const dx = enemy.x - mx;
+    const dy = enemy.y - my;
+    if (dx * dx + dy * dy <= nukeRadSq) {
+      dealDamage(enemy, NUKE_BOMB_DAMAGE, 1, 0);
+    }
+  }
+}
+
+function drawNukeCinematic() {
+  if (!nukeCinematic) return;
+  const c = nukeCinematic;
+
+  ctx.save();
+
+  // Dim overlay
+  if (c.dimAlpha > 0) {
+    ctx.fillStyle = `rgba(0, 0, 0, ${c.dimAlpha})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Letterbox bars (cinematic feel)
+  if (c.letterboxH > 0) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, c.letterboxH);
+    ctx.fillRect(0, canvas.height - c.letterboxH, canvas.width, c.letterboxH);
+  }
+
+  // Airplane
+  if (c.phase === 'airplane' || (c.phase === 'drop' && c.timer < 0.2)) {
+    drawCinematicAirplane(c.airplaneX, c.airplaneY);
+  }
+
+  // Falling bomb
+  if (c.bombDropped && (c.phase === 'drop' || c.phase === 'airplane')) {
+    drawFallingBomb(c.bombX, c.bombY, c.bombAngle);
+  }
+
+  // Target crosshair (before impact)
+  if (c.phase === 'dim' || c.phase === 'airplane' || c.phase === 'drop') {
+    drawNukeTargetCrosshair(c.targetX, c.targetY, c.phase === 'drop' ? c.timer / NUKE_SCENE.DROP_DURATION : 0);
+  }
+
+  // White flash
+  if (c.flashAlpha > 0) {
+    ctx.fillStyle = `rgba(255, 255, 200, ${c.flashAlpha})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  ctx.restore();
+}
+
+function drawCinematicAirplane(x, y) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Airplane body (bomber silhouette)
+  const scale = 2.5;
+  ctx.fillStyle = '#333';
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+
+  // Fuselage
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 28 * scale, 5 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Wings
+  ctx.beginPath();
+  ctx.moveTo(-8 * scale, 0);
+  ctx.lineTo(-18 * scale, -16 * scale);
+  ctx.lineTo(-12 * scale, -16 * scale);
+  ctx.lineTo(2 * scale, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-8 * scale, 0);
+  ctx.lineTo(-18 * scale, 16 * scale);
+  ctx.lineTo(-12 * scale, 16 * scale);
+  ctx.lineTo(2 * scale, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Tail fin
+  ctx.beginPath();
+  ctx.moveTo(-26 * scale, 0);
+  ctx.lineTo(-32 * scale, -8 * scale);
+  ctx.lineTo(-28 * scale, -8 * scale);
+  ctx.lineTo(-24 * scale, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Cockpit
+  ctx.fillStyle = '#6cf';
+  ctx.beginPath();
+  ctx.ellipse(22 * scale, 0, 6 * scale, 3 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Engine exhaust trails
+  const now = performance.now();
+  ctx.globalAlpha = 0.3 + 0.1 * Math.sin(now / 80);
+  ctx.fillStyle = '#aaa';
+  ctx.beginPath();
+  ctx.ellipse(-32 * scale, -12 * scale, 15 * scale + Math.sin(now / 50) * 3, 2.5 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-32 * scale, 12 * scale, 15 * scale + Math.cos(now / 50) * 3, 2.5 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+
+function drawFallingBomb(x, y, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  const scale = 1.8;
+
+  // Bomb body
+  ctx.fillStyle = '#2a2a2a';
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 6 * scale, 12 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Nose cone
+  ctx.fillStyle = '#ff4500';
+  ctx.beginPath();
+  ctx.arc(0, 10 * scale, 4 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tail fins
+  ctx.fillStyle = '#555';
+  ctx.beginPath();
+  ctx.moveTo(-3 * scale, -10 * scale);
+  ctx.lineTo(-8 * scale, -16 * scale);
+  ctx.lineTo(-2 * scale, -14 * scale);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(3 * scale, -10 * scale);
+  ctx.lineTo(8 * scale, -16 * scale);
+  ctx.lineTo(2 * scale, -14 * scale);
+  ctx.closePath();
+  ctx.fill();
+
+  // Radiation symbol on body
+  ctx.fillStyle = '#ffff00';
+  ctx.font = `bold ${10 * scale}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('☢', 0, -1 * scale);
+
+  // Fall trail particles
+  const now = performance.now();
+  ctx.globalAlpha = 0.4;
+  for (let i = 0; i < 3; i++) {
+    const trailY = -18 * scale - i * 8 * scale;
+    const wobble = Math.sin(now / 60 + i) * 3;
+    ctx.fillStyle = i === 0 ? '#ff8c00' : '#888';
+    ctx.beginPath();
+    ctx.arc(wobble, trailY, (3 - i) * scale, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+
+function drawNukeTargetCrosshair(x, y, urgency) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  const now = performance.now();
+  const pulse = 1 + 0.15 * Math.sin(now / 100);
+  const radius = NUKE_BOMB_RADIUS * (0.3 + urgency * 0.7);
+
+  // Outer pulsing circle (danger zone)
+  ctx.globalAlpha = 0.2 + urgency * 0.3;
+  ctx.strokeStyle = '#ff0000';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * pulse, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Crosshair lines
+  ctx.globalAlpha = 0.5 + urgency * 0.3;
+  ctx.strokeStyle = '#ff4500';
+  ctx.lineWidth = 1.5;
+  const len = 12 + urgency * 8;
+  ctx.beginPath();
+  ctx.moveTo(-len, 0); ctx.lineTo(-4, 0);
+  ctx.moveTo(4, 0); ctx.lineTo(len, 0);
+  ctx.moveTo(0, -len); ctx.lineTo(0, -4);
+  ctx.moveTo(0, 4); ctx.lineTo(0, len);
+  ctx.stroke();
+
+  // Center dot
+  ctx.fillStyle = '#ff0000';
+  ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 80);
+  ctx.beginPath();
+  ctx.arc(0, 0, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
 }
 
 function updateTowerButtons() {
@@ -3130,11 +3488,6 @@ function updateNukeBombUI() {
       useBtn.style.background = nukeBombs > 0 ? '#8b0000' : '#333';
     }
     useBtn.disabled = nukeBombs <= 0 && !nukeBombMode;
-  }
-  const coinBtn = document.getElementById('nuke-bomb-buy-coin-btn');
-  if (coinBtn) {
-    coinBtn.disabled = gold < 500;
-    coinBtn.style.background = gold >= 500 ? '#ff8c00' : '#555';
   }
 }
 
