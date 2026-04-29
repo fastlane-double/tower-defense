@@ -3,8 +3,13 @@
 // ============================================================
 
 // --- SERVER API ---
-// Use same-origin when served by the game server; fall back to localhost:3000 for local dev
-const API_BASE = window.GAME_API_BASE || (location.port === '3000' ? '' : 'http://localhost:3000');
+// config.js sets window.GAME_API_BASE at build time (via VITE_API_BASE env var).
+// Fall back to same-origin when served by the game server, or localhost:3000 for local dev.
+const API_BASE = (function() {
+  const cfg = window.GAME_API_BASE;
+  if (cfg && cfg !== '__API_BASE_PLACEHOLDER__') return cfg;
+  return location.port === '3000' ? '' : 'http://localhost:3000';
+})();
 
 // --- MOBILE DETECTION ---
 function isMobile() {
