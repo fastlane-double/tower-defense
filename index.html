@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>🏰 타워 디펜스 — 무한 웨이브를 버텨라!</title>
   <meta name="description" content="타워를 배치하고 적의 침략을 막아라! 8종 일반 타워 + 6종 프리미엄 타워, 무한 웨이브 + 10웨이브마다 보스전, 리더보드 지원.">
   <meta name="theme-color" content="#1a1a2e">
@@ -17,8 +17,9 @@
         <h1>🏰 타워 디펜스</h1>
         <p class="intro-tagline">적의 침략을 막아라! 타워를 배치하고 최대한 오래 버텨내자</p>
         <div class="intro-howto">
-          <span>🖱 클릭으로 타워 배치</span>
-          <span>💰 코인으로 업그레이드</span>
+          <span class="desktop-hint">🖱 클릭���로 타워 배치</span>
+          <span class="mobile-hint">👆 터치로 타워 배치</span>
+          <span>💰 ��인으로 업그레이드</span>
           <span>🌊 웨이브마다 적 증강</span>
         </div>
       </div>
@@ -33,6 +34,8 @@
 
   <!-- Main Game -->
   <div id="game-container" style="display:none">
+    <!-- Mobile sidebar backdrop (closes sidebar when tapped) -->
+    <div id="mobile-sidebar-backdrop" onclick="toggleMobileSidebar()"></div>
     <div id="sidebar">
       <h2>타워 디펜스</h2>
       <div id="player-name-display"></div>
@@ -242,6 +245,34 @@
       <!-- First-play onboarding hint -->
       <div id="onboarding-hint" style="display:none;">
         <span class="hint-arrow">👆</span> 초록색 잔디 칸을 클릭하여 타워를 배치하세요! 먼저 타워 종류를 선택하고 배치하세요.
+      </div>
+
+      <!-- Mobile Quick Tower Bar (bottom of canvas area) -->
+      <div id="mobile-tower-bar">
+        <div id="mobile-stats-row">
+          <span id="mobile-hp">❤️ 20</span>
+          <span id="mobile-gold">💰 150</span>
+          <span id="mobile-wave">🌊 0</span>
+          <span id="mobile-score">🏆 0</span>
+        </div>
+        <div id="mobile-tower-row">
+          <button class="mtb" data-tower="arrow" onclick="selectTower('arrow')">🏹<span>50</span></button>
+          <button class="mtb" data-tower="cannon" onclick="selectTower('cannon')">💣<span>100</span></button>
+          <button class="mtb" data-tower="magic" onclick="selectTower('magic')">🔮<span>125</span></button>
+          <button class="mtb" data-tower="sniper" onclick="selectTower('sniper')">🎯<span>150</span></button>
+          <button class="mtb" data-tower="poison" onclick="selectTower('poison')">☠️<span>125</span></button>
+          <button class="mtb" data-tower="laser" onclick="selectTower('laser')">⚡<span>200</span></button>
+          <button class="mtb" data-tower="storm" onclick="selectTower('storm')">🌪️<span>175</span></button>
+          <button class="mtb" data-tower="gravity" onclick="selectTower('gravity')">🕳️<span>225</span></button>
+          <button class="mtb mtb-more" onclick="toggleMobileSidebar()">⋯</button>
+        </div>
+        <div id="mobile-action-row">
+          <button class="mab" id="mobile-wave-btn" onclick="startNextWave()">▶ 웨이브</button>
+          <button class="mab" id="mobile-speed-btn" onclick="toggleSpeed()">1x</button>
+          <button class="mab" id="mobile-auto-btn" onclick="toggleAutoWave()">🔄</button>
+          <button class="mab" id="mobile-sell-btn" onclick="setSellMode()">🔨</button>
+          <button class="mab" id="mobile-mute-btn" onclick="toggleMute()">🔊</button>
+        </div>
       </div>
 
       <!-- Stage 2 Transition Overlay -->

@@ -5,6 +5,11 @@
 // --- SERVER API ---
 const API_BASE = 'http://localhost:3000';
 
+// --- MOBILE DETECTION ---
+function isMobile() {
+  return window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
+}
+
 // --- PREMIUM SYSTEM ---
 // Premium towers unlock via purchase. DEV_MODE bypasses the lock.
 let DEV_MODE = false; // set true to unlock all premium towers free
@@ -459,6 +464,48 @@ function goToMenu() {
   playerName = '';
   sessionStartTime = null;
   fetchLeaderboard(document.getElementById('leaderboard-list'));
+}
+
+// --- MOBILE UI HELPERS ---
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('mobile-sidebar-backdrop');
+  const isOpen = sidebar.classList.toggle('mobile-sidebar-open');
+  if (backdrop) backdrop.classList.toggle('visible', isOpen);
+}
+
+function updateMobileUI() {
+  const mhp = document.getElementById('mobile-hp');
+  const mgold = document.getElementById('mobile-gold');
+  const mwave = document.getElementById('mobile-wave');
+  const mscore = document.getElementById('mobile-score');
+  if (mhp) mhp.textContent = '❤️ ' + hp;
+  if (mgold) mgold.textContent = '💰 ' + gold;
+  if (mwave) mwave.textContent = '🌊 ' + currentWave;
+  if (mscore) mscore.textContent = '🏆 ' + score;
+
+  // Update mobile tower button states
+  const mtbs = document.querySelectorAll('.mtb[data-tower]');
+  mtbs.forEach(btn => {
+    const type = btn.dataset.tower;
+    const def = TOWER_DEFS[type];
+    if (!def) return;
+    btn.classList.toggle('selected', selectedTowerType === type);
+    btn.classList.toggle('not-affordable', gold < def.cost);
+  });
+
+  // Update mobile action button states
+  const speedBtn = document.getElementById('mobile-speed-btn');
+  if (speedBtn) {
+    speedBtn.textContent = speedMultiplier > 1 ? '2x' : '1x';
+    speedBtn.classList.toggle('active', speedMultiplier > 1);
+  }
+  const autoBtn = document.getElementById('mobile-auto-btn');
+  if (autoBtn) autoBtn.classList.toggle('active', autoWaveEnabled);
+  const sellBtn = document.getElementById('mobile-sell-btn');
+  if (sellBtn) sellBtn.classList.toggle('active', sellMode);
+  const muteBtn = document.getElementById('mobile-mute-btn');
+  if (muteBtn) muteBtn.textContent = soundMuted ? '🔇' : '🔊';
 }
 
 // --- CONSTANTS ---
@@ -1455,6 +1502,10 @@ function initGame() {
     canvas.addEventListener('mousemove', onMouseMove);
     canvas.addEventListener('click', onCanvasClick);
     canvas.addEventListener('mouseleave', () => { hoveredCell = null; });
+    // Mobile touch support
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false });
     initKeyboardShortcuts();
     _gameInitialized = true;
   }
@@ -1476,6 +1527,10 @@ function showOnboardingHintIfNew() {
   localStorage.setItem('td_onboarding_seen', '1');
   const hint = document.getElementById('onboarding-hint');
   if (!hint) return;
+  // Adapt hint text for mobile
+  if (isMobile()) {
+    hint.innerHTML = '<span class="hint-arrow">👆</span> 아래 타워를 선택한 후 초록색 잔디를 터치하여 배치하세요!';
+  }
   hint.style.display = 'block';
   setTimeout(() => { hint.style.display = 'none'; }, 7000);
 }
@@ -1552,6 +1607,8 @@ function resizeCanvas() {
   canvas.style.height = (canvas.height * scale) + 'px';
   canvas.style.marginLeft = ((container.clientWidth - canvas.width * scale) / 2) + 'px';
   canvas.style.marginTop = ((container.clientHeight - canvas.height * scale) / 2) + 'px';
+  // Toggle mobile body class for CSS
+  document.body.classList.toggle('is-mobile', isMobile());
 }
 
 // ============================================================
@@ -2328,6 +2385,90 @@ function onCanvasClick(e) {
   }
 }
 
+// ============================================================
+// TOUCH INPUT HANDLING (Mobile)
+// ============================================================
+let _touchStartPos = null;
+let _touchStartTime = 0;
+const TOUCH_TAP_THRESHOLD = 15; // px movement threshold to distinguish tap from drag
+
+function getTouchCanvasCoords(touch) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    mx: (touch.clientX - rect.left) * scaleX,
+    my: (touch.clientY - rect.top) * scaleY,
+  };
+}
+
+function onTouchStart(e) {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const touch = e.touches[0];
+    const { mx, my } = getTouchCanvasCoords(touch);
+    _touchStartPos = { x: mx, y: my, clientX: touch.clientX, clientY: touch.clientY };
+    _touchStartTime = performance.now();
+    // Update hovered cell immediately for visual feedback
+    hoveredCell = { col: Math.floor(mx / TILE), row: Math.floor(my / TILE), mx, my };
+  }
+}
+
+function onTouchMove(e) {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const { mx, my } = getTouchCanvasCoords(e.touches[0]);
+    hoveredCell = { col: Math.floor(mx / TILE), row: Math.floor(my / TILE), mx, my };
+  }
+}
+
+function onTouchEnd(e) {
+  e.preventDefault();
+  if (e.changedTouches.length === 1 && _touchStartPos) {
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - _touchStartPos.clientX;
+    const dy = touch.clientY - _touchStartPos.clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    // Treat as tap if finger didn't move much
+    if (dist < TOUCH_TAP_THRESHOLD) {
+      const { mx, my } = getTouchCanvasCoords(touch);
+      handleCanvasTap(mx, my);
+    }
+  }
+  _touchStartPos = null;
+  // Clear hover after a short delay so placement feedback shows
+  setTimeout(() => { if (!_touchStartPos) hoveredCell = null; }, 300);
+}
+
+function handleCanvasTap(mx, my) {
+  if (gameOver) return;
+  const col = Math.floor(mx / TILE);
+  const row = Math.floor(my / TILE);
+  // Resume audio context on first touch (mobile autoplay policy)
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  if (nukeBombMode) {
+    dropNukeBomb(mx, my);
+    return;
+  }
+  if (sellMode) {
+    trySellTower(col, row);
+    return;
+  }
+  if (selectedTowerType) {
+    tryPlaceTower(col, row, selectedTowerType);
+  } else {
+    const t = towers.find(t => t.col === col && t.row === row);
+    if (t) {
+      selectedTower = t;
+      showUpgradeShop(t);
+    } else {
+      selectedTower = null;
+      hideUpgradeShop();
+    }
+  }
+}
+
 function tryPlaceTower(col, row, type) {
   if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
   const tile = MAP_LAYOUT[row][col];
@@ -2888,6 +3029,9 @@ function updateUI() {
     }
     prevWavePreviewKey = previewKey;
   }
+
+  // Update mobile UI bar
+  if (isMobile()) updateMobileUI();
 }
 
 function getNextWavePreview(waveIdx) {

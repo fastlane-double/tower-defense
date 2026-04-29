@@ -826,107 +826,269 @@ body {
 
 }
 
+/* ── Desktop/Mobile hint toggle ── */
+.mobile-hint { display: none; }
+.desktop-hint { display: inline; }
+
+@media (max-width: 768px) {
+  .mobile-hint { display: inline; }
+  .desktop-hint { display: none; }
+}
+
+/* ── Mobile sidebar backdrop (hidden on desktop) ── */
+#mobile-sidebar-backdrop {
+  display: none;
+}
+
+/* ── Mobile Tower Bar (hidden on desktop) ── */
+#mobile-tower-bar {
+  display: none;
+}
+
 /* ── Mobile Game Layout ── */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   body {
-    overflow: auto;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
   }
 
   #game-container {
     flex-direction: column;
-    height: auto;
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
   }
 
+  /* Hide sidebar by default on mobile, show as overlay when toggled */
   #sidebar {
-    width: 100%;
-    max-height: none;
-    border-right: none;
-    border-bottom: 2px solid #0f3460;
-    padding: 8px 10px;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 8px;
-    overflow-y: visible;
-  }
-
-  #sidebar h2 {
-    width: 100%;
-    font-size: 1rem;
-    margin-bottom: 4px;
-  }
-
-  #stats {
-    flex: 1;
-    min-width: 150px;
-  }
-
-  .stat {
-    font-size: 0.85rem;
-  }
-
-  #tower-shop {
-    flex: 1;
-    min-width: 160px;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  #tower-shop h3 {
-    width: 100%;
-  }
-
-  .tower-btn {
-    padding: 8px;
-    min-width: 80px;
-    flex: 1;
-  }
-
-  .tower-icon {
-    font-size: 1.4rem;
-    width: 28px;
-  }
-
-  .tower-info .tower-name {
-    font-size: 0.75rem;
-  }
-
-  .tower-info .tower-desc {
     display: none;
-  }
-
-  #wave-control {
-    width: 100%;
-  }
-
-  #start-wave-btn {
-    font-size: 1rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 80%;
+    max-width: 280px;
+    height: 100%;
+    z-index: 300;
+    border-right: 2px solid #e94560;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.6);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-direction: column;
+    gap: 8px;
     padding: 12px;
-    min-height: 44px;
+    background: #16213e;
   }
 
-  /* Bigger touch targets for wave control buttons */
-  .speed-btn,
-  .auto-wave-btn,
-  .sell-mode-btn,
-  .mute-btn {
-    min-height: 40px;
-    font-size: 0.9rem;
+  #sidebar.mobile-sidebar-open {
+    display: flex;
   }
 
-  #canvas-container {
+  #mobile-sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
-    min-height: 300px;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 299;
+  }
+
+  #mobile-sidebar-backdrop.visible {
+    display: block;
+  }
+
+  /* Canvas takes full space minus mobile bar */
+  #canvas-container {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
   }
 
   #game-canvas {
-    width: 100% !important;
-    height: auto !important;
+    touch-action: none;
   }
 
+  /* Show mobile tower bar */
+  #mobile-tower-bar {
+    display: flex;
+    flex-direction: column;
+    background: #16213e;
+    border-top: 2px solid #0f3460;
+    padding: 4px 6px;
+    gap: 4px;
+    flex-shrink: 0;
+    z-index: 50;
+  }
+
+  /* Mobile stats row */
+  #mobile-stats-row {
+    display: flex;
+    justify-content: space-around;
+    font-size: 0.75rem;
+    color: #e0e0e0;
+    padding: 2px 0;
+  }
+
+  #mobile-stats-row span {
+    font-weight: bold;
+  }
+
+  /* Mobile tower selection row */
+  #mobile-tower-row {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 0;
+    scrollbar-width: none;
+  }
+
+  #mobile-tower-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mtb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    height: 44px;
+    border: 2px solid #0f3460;
+    border-radius: 8px;
+    background: #0f3460;
+    color: #e0e0e0;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    padding: 2px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mtb span {
+    font-size: 0.55rem;
+    color: #ffd700;
+    line-height: 1;
+  }
+
+  .mtb.selected {
+    border-color: #e94560;
+    background: #2a1a30;
+    box-shadow: 0 0 8px rgba(233, 69, 96, 0.5);
+  }
+
+  .mtb.not-affordable {
+    opacity: 0.4;
+  }
+
+  .mtb-more {
+    background: #1a3a5c;
+    border-color: #2a5a8c;
+    font-size: 1.4rem;
+    color: #a8b2c1;
+  }
+
+  /* Mobile action row */
+  #mobile-action-row {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mab {
+    flex: 1;
+    height: 36px;
+    border: 1px solid #0f3460;
+    border-radius: 6px;
+    background: #0f3460;
+    color: #e0e0e0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mab#mobile-wave-btn {
+    flex: 2;
+    background: #e94560;
+    border-color: #e94560;
+    color: white;
+  }
+
+  .mab.active {
+    background: #e94560;
+    border-color: #ff6688;
+    box-shadow: 0 0 6px rgba(233, 69, 96, 0.4);
+  }
+
+  /* Hide instructions on mobile */
   #instructions {
     display: none;
+  }
+
+  /* Onboarding hint repositioning for mobile */
+  #onboarding-hint {
+    bottom: 120px;
+    font-size: 0.75rem;
+    white-space: normal;
+    max-width: 80%;
+  }
+
+  /* Overlay adjustments for mobile */
+  #overlay-content {
+    padding: 24px 16px;
+    max-width: 90vw;
+  }
+
+  #overlay-title {
+    font-size: 2rem;
+  }
+
+  #overlay-msg {
+    font-size: 1rem;
+  }
+
+  /* Stage transition adjustments */
+  #stage-transition-content {
+    padding: 24px;
+  }
+
+  #stage-transition-content h1 {
+    font-size: 2rem;
+  }
+
+  /* Upgrade shop appears as a modal overlay on mobile */
+  #upgrade-shop {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 320px;
+    z-index: 200;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    border: 2px solid #4a90d9;
+  }
+}
+
+/* ── Small phone adjustments ── */
+@media (max-width: 420px) {
+  .mtb {
+    min-width: 38px;
+    height: 38px;
+    font-size: 1rem;
+  }
+
+  .mab {
+    height: 32px;
+    font-size: 0.7rem;
+  }
+
+  #mobile-stats-row {
+    font-size: 0.65rem;
   }
 }
 
