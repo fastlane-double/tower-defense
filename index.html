@@ -7,6 +7,8 @@
   <meta name="description" content="타워를 배치하고 적의 침략을 막아라! 8종 일반 타워 + 6종 프리미엄 타워, 무한 웨이브 + 10웨이브마다 보스전, 리더보드 지원.">
   <meta name="theme-color" content="#1a1a2e">
   <link rel="stylesheet" href="style.css">
+  <!-- Toss Payments SDK (optional — test mode works without it) -->
+  <script src="https://js.tosspayments.com/v1/payment"></script>
 </head>
 <body>
 
@@ -172,7 +174,7 @@
           <div class="tower-icon" style="text-shadow:0 0 8px #ffd700;">👑</div>
           <div class="tower-info">
             <div class="tower-name" style="color:#ffd700;font-weight:bold;">갓 타워 ★OP★</div>
-            <div class="tower-cost">🔒 $1.00</div>
+            <div class="tower-cost">🔒 ₩1,000</div>
             <div class="tower-desc" style="color:#ffcc00;">전지전능<br>1회용 소모품</div>
           </div>
           <div class="premium-lock-badge" style="background:#ffd700;color:#000;">👑</div>
@@ -185,7 +187,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <span style="font-size:0.8em;color:#fff;">보유: <span id="nuke-bomb-count">0</span>개 ☢️</span>
           <div style="display:flex;gap:4px;">
-            <button id="nuke-bomb-buy-cash-btn" onclick="buyNukeBombCash()" style="font-size:0.7em;padding:5px 8px;background:#555;color:#ccc;border:1px solid #ffd700;border-radius:4px;cursor:pointer;font-weight:bold;" title="결제 시스템 준비 중">🚧 준비 중</button>
+            <button id="nuke-bomb-buy-cash-btn" onclick="buyNukeBombCash()" style="font-size:0.7em;padding:5px 8px;background:linear-gradient(135deg,#0066ff,#0044cc);color:#fff;border:1px solid #4488ff;border-radius:4px;cursor:pointer;font-weight:bold;" title="핵폭탄 1개 구매 (₩500)">💳 ₩500 구매</button>
           </div>
         </div>
         <button id="nuke-bomb-use-btn" onclick="toggleNukeBombMode()" style="width:100%;font-size:0.8em;padding:5px;background:#8b0000;color:#fff;border:1px solid #ff4500;border-radius:5px;cursor:pointer;font-weight:bold;">☢️ 핵폭탄 투하 (클릭으로 지점 선택)</button>
@@ -312,12 +314,12 @@
       <h2 id="purchase-modal-title" style="color:#ffd700;margin-bottom:8px;"></h2>
       <p id="purchase-modal-desc" style="color:#aaa;margin-bottom:12px;font-size:0.9em;"></p>
       <div style="background:#ffd70022;border:1px solid #ffd700;border-radius:8px;padding:12px;margin-bottom:16px;">
-        <div style="font-size:0.85em;color:#aaa;">영구 잠금 해제 — 한 번 구매로 무한 사용</div>
+        <div id="purchase-type-label" style="font-size:0.85em;color:#aaa;">영구 잠금 해제 — 한 번 구매로 무한 사용</div>
         <div id="purchase-modal-price" style="font-size:1.8em;font-weight:bold;color:#ffd700;margin:4px 0;"></div>
-        <div style="font-size:0.75em;color:#00cc88;margin-top:4px;">✅ 모든 기기에서 영구 사용 가능</div>
+        <div id="purchase-type-note" style="font-size:0.75em;color:#00cc88;margin-top:4px;">✅ 모든 기기에서 영구 사용 가능</div>
       </div>
       <div style="display:flex;gap:10px;justify-content:center;">
-        <button onclick="confirmPurchase()" style="background:#555;color:#ccc;font-weight:bold;padding:12px 24px;border:1px solid #ffd700;border-radius:8px;cursor:pointer;font-size:1.05em;">🚧 결제 준비 중 (곧 오픈!)</button>
+        <button onclick="confirmPurchase()" style="background:linear-gradient(135deg,#0066ff,#0044cc);color:#fff;font-weight:bold;padding:12px 24px;border:1px solid #4488ff;border-radius:8px;cursor:pointer;font-size:1.05em;">💳 결제하기</button>
         <button onclick="closePurchaseModal()" style="background:#444;color:#fff;padding:12px 20px;border:none;border-radius:8px;cursor:pointer;font-size:1em;">닫기</button>
       </div>
       <div id="purchase-modal-coin-option" style="margin-top:12px;display:none;">
@@ -331,5 +333,37 @@
   </div>
 
   <script src="game.js"></script>
+  <script>
+    // Handle Toss Payments redirect callback (success/fail)
+    (function handlePaymentRedirect() {
+      const params = new URLSearchParams(window.location.search);
+      const paymentKey = params.get('paymentKey');
+      const orderId = params.get('orderId');
+      const amount = params.get('amount');
+      const code = params.get('code'); // fail case
+
+      if (code) {
+        // Payment failed
+        const msg = params.get('message') || '결제가 취소되었습니다.';
+        alert('결제 실패: ' + msg);
+        window.history.replaceState({}, '', window.location.pathname);
+        return;
+      }
+
+      if (paymentKey && orderId && amount) {
+        // Payment success — confirm with server
+        window.history.replaceState({}, '', window.location.pathname);
+        confirmPaymentFromRedirect(paymentKey, orderId, amount)
+          .then(result => {
+            if (result && result.success) {
+              alert('✅ 결제 완료! 아이템이 잠금 해제되었습니다.');
+            }
+          })
+          .catch(err => {
+            alert('결제 확인 실패: ' + err.message);
+          });
+      }
+    })();
+  </script>
 </body>
 </html>

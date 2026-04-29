@@ -505,6 +505,7 @@ function startGame() {
   document.getElementById('game-container').style.display = 'flex';
   document.getElementById('player-name-display').textContent = `👤 ${playerName}`;
   sessionStartTime = Date.now();
+  syncPurchasesFromServer(); // sync paid purchases from server
   initGame();
 }
 
@@ -848,7 +849,7 @@ const TOWER_DEFS = {
     sellValue: 250,
     emoji: '☢️',
     premium: true,
-    premiumPrice: '$1.00',
+    premiumPrice: '₩2,400',
     premiumCoinCost: 0,  // real payment only — no game currency purchase
     premiumDesc: '거대 핵 폭발로 광역 초대형 피해! (💳 실제 결제 전용)',
     upgrades: [
@@ -949,7 +950,7 @@ const TOWER_DEFS = {
     emoji: '👑',
     premium: true,
     consumable: true,
-    premiumPrice: '$1.00',
+    premiumPrice: '₩1,000',
     premiumCoinCost: 9999,
     premiumDesc: '전지전능한 궁극의 타워! 1회 사용 가능. 배치 시 소모됩니다.',
     upgrades: [
@@ -2704,16 +2705,60 @@ function setSellMode() {
 const NUKE_BOMB_DAMAGE    = 9999;  // effectively kills everything
 const NUKE_BOMB_RADIUS    = TILE * 4.5; // huge AoE
 
-function buyNukeBombCash() {
-  // Payment gateway not yet connected — show "coming soon" notice
-  const notif = document.createElement('div');
-  notif.className = 'unlock-notif';
-  notif.style.background = '#1a1a2e';
-  notif.style.border = '1px solid #ffd700';
-  notif.style.color = '#ffd700';
-  notif.textContent = '🚧 결제 시스템 준비 중입니다. 곧 오픈 예정!';
-  document.getElementById('game-container').appendChild(notif);
-  setTimeout(() => notif.remove(), 4000);
+async function buyNukeBombCash() {
+  showPaymentNotif('결제 처리 중...', '#00bfff');
+
+  try {
+    // 1. Create order on server
+    const orderRes = await fetch(API_BASE + '/api/payments/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_id: 'nuke_bomb', player_name: playerName }),
+    });
+    if (!orderRes.ok) {
+      const err = await orderRes.json().catch(() => ({}));
+      throw new Error(err.error || '주문 생성 실패');
+    }
+    const order = await orderRes.json();
+
+    // 2. Try Toss Payments SDK checkout
+    const toss = await getTossPayments();
+    if (toss) {
+      await toss.requestPayment('카드', {
+        amount: order.amount,
+        orderId: order.orderId,
+        orderName: order.orderName,
+        successUrl: window.location.origin + '/payment-success.html',
+        failUrl: window.location.origin + '/payment-fail.html',
+        customerName: playerName,
+      });
+    } else {
+      // Test mode: auto-confirm
+      const testPaymentKey = 'test_' + Date.now();
+      const confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentKey: testPaymentKey,
+          orderId: order.orderId,
+          amount: order.amount,
+        }),
+      });
+      if (!confirmRes.ok) {
+        const err = await confirmRes.json().catch(() => ({}));
+        throw new Error(err.error || '결제 확인 실패');
+      }
+      const result = await confirmRes.json();
+      if (result.success) {
+        nukeBombs++;
+        updateNukeBombUI();
+        showPaymentNotif('✅ 핵폭탄 1개 구매 완료!', '#00ff88');
+      }
+    }
+  } catch (err) {
+    console.error('Nuke bomb payment error:', err);
+    showPaymentNotif('결제 실패: ' + err.message, '#ff4444');
+  }
 }
 
 function toggleNukeBombMode() {
@@ -3364,6 +3409,20 @@ function showPurchaseModal(type) {
   price.textContent = def.premiumPrice || '';
   modal.dataset.towerType = type;
 
+  // Update purchase type description
+  const typeLabel = document.getElementById('purchase-type-label');
+  const typeNote = document.getElementById('purchase-type-note');
+  if (typeLabel) {
+    typeLabel.textContent = def.consumable
+      ? '1회 사용권 — 배치 시 소모됩니다'
+      : '영구 잠금 해제 — 한 번 구매로 무한 사용';
+  }
+  if (typeNote) {
+    typeNote.textContent = def.consumable
+      ? '구매 후 1회 배치 가능'
+      : '모든 기기에서 영구 사용 가능';
+  }
+
   // Show coin purchase option if available
   if (coinOption && coinBtn && def.premiumCoinCost) {
     coinOption.style.display = 'block';
@@ -3387,17 +3446,172 @@ function closePurchaseModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// Payment gateway not yet connected — show "coming soon" notice
-function confirmPurchase() {
+// --- PAYMENT SYSTEM (Toss Payments Integration) ---
+const TOSS_CLIENT_KEY = window.TOSS_CLIENT_KEY || '';
+let _tossPayments = null;
+
+async function getTossPayments() {
+  if (_tossPayments) return _tossPayments;
+  if (!TOSS_CLIENT_KEY || typeof TossPayments === 'undefined') return null;
+  _tossPayments = TossPayments(TOSS_CLIENT_KEY);
+  return _tossPayments;
+}
+
+// Create order on server, then launch Toss Payments checkout
+async function confirmPurchase() {
+  const modal = document.getElementById('purchase-modal');
+  if (!modal) return;
+  const type = modal.dataset.towerType;
+  const def = TOWER_DEFS[type];
+  if (!def) return;
+
   closePurchaseModal();
+  showPaymentNotif('결제 처리 중...', '#00bfff');
+
+  try {
+    // 1. Create order on server
+    const orderRes = await fetch(API_BASE + '/api/payments/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_id: type, player_name: playerName }),
+    });
+    if (!orderRes.ok) {
+      const err = await orderRes.json().catch(() => ({}));
+      throw new Error(err.error || '주문 생성 실패');
+    }
+    const order = await orderRes.json();
+
+    // 2. Try Toss Payments SDK checkout
+    const toss = await getTossPayments();
+    if (toss) {
+      // Production: Toss Payments widget
+      await toss.requestPayment('카드', {
+        amount: order.amount,
+        orderId: order.orderId,
+        orderName: order.orderName,
+        successUrl: window.location.origin + '/payment-success.html',
+        failUrl: window.location.origin + '/payment-fail.html',
+        customerName: playerName,
+      });
+      // Toss redirects the page — this code won't execute further
+    } else {
+      // Test mode: no Toss SDK — auto-confirm via server
+      const testPaymentKey = 'test_' + Date.now();
+      const confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentKey: testPaymentKey,
+          orderId: order.orderId,
+          amount: order.amount,
+        }),
+      });
+      if (!confirmRes.ok) {
+        const err = await confirmRes.json().catch(() => ({}));
+        throw new Error(err.error || '결제 확인 실패');
+      }
+      const result = await confirmRes.json();
+
+      // 3. Unlock the tower locally
+      if (result.success) {
+        unlockPremiumTower(type);
+        updateTowerButtons();
+        updatePremiumUI();
+        const label = def.consumable
+          ? `${def.name} 1회 사용권 구매 완료!`
+          : `${def.name} 영구 잠금 해제!`;
+        showPaymentNotif('✅ ' + label, '#00ff88');
+      }
+    }
+  } catch (err) {
+    console.error('Payment error:', err);
+    showPaymentNotif('결제 실패: ' + err.message, '#ff4444');
+  }
+}
+
+// Confirm payment after Toss Payments redirect (called from success page)
+async function confirmPaymentFromRedirect(paymentKey, orderId, amount) {
+  try {
+    const confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
+    });
+    if (!confirmRes.ok) {
+      const err = await confirmRes.json().catch(() => ({}));
+      throw new Error(err.error || '결제 확인 실패');
+    }
+    const result = await confirmRes.json();
+    if (result.success && result.productId) {
+      unlockPremiumTower(result.productId);
+      updateTowerButtons();
+      updatePremiumUI();
+    }
+    return result;
+  } catch (err) {
+    console.error('Payment confirm error:', err);
+    throw err;
+  }
+}
+
+function showPaymentNotif(text, color) {
   const notif = document.createElement('div');
   notif.className = 'unlock-notif';
   notif.style.background = '#1a1a2e';
-  notif.style.border = '1px solid #ffd700';
-  notif.style.color = '#ffd700';
-  notif.textContent = '🚧 결제 시스템 준비 중입니다. 곧 오픈 예정!';
-  document.getElementById('game-container').appendChild(notif);
+  notif.style.border = '1px solid ' + (color || '#ffd700');
+  notif.style.color = color || '#ffd700';
+  notif.textContent = text;
+  const container = document.getElementById('game-container');
+  if (container) container.appendChild(notif);
   setTimeout(() => notif.remove(), 4000);
+}
+
+// Sync purchases from server — merges server records into localStorage
+async function syncPurchasesFromServer() {
+  if (!playerName) return;
+  try {
+    const res = await fetch(API_BASE + '/api/payments/purchases/' + encodeURIComponent(playerName));
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Merge permanent unlocks
+    if (data.unlocked && data.unlocked.length > 0) {
+      const current = getPremiumUnlocked();
+      let changed = false;
+      for (const id of data.unlocked) {
+        if (!current.has(id)) {
+          current.add(id);
+          changed = true;
+        }
+      }
+      if (changed) {
+        setPremiumUnlocked(current);
+        updateTowerButtons();
+        updatePremiumUI();
+      }
+    }
+
+    // Merge consumable counts (server is source of truth for paid purchases)
+    if (data.consumables) {
+      const counts = getConsumableCounts();
+      let changed = false;
+      for (const [id, serverCount] of Object.entries(data.consumables)) {
+        const localCount = counts[id] || 0;
+        if (serverCount > localCount) {
+          counts[id] = serverCount;
+          changed = true;
+        }
+      }
+      if (changed) {
+        setConsumableCounts(counts);
+        updateTowerButtons();
+        updatePremiumUI();
+      }
+    }
+  } catch (err) {
+    // Silent fail — offline or server down
+    console.warn('Purchase sync failed:', err.message);
+  }
 }
 
 // Coin-based purchase for premium towers

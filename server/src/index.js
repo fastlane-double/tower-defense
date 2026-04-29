@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 
 const scoresRouter = require('./routes/scores');
 const sessionsRouter = require('./routes/sessions');
+const paymentsRouter = require('./routes/payments');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +65,7 @@ app.post('/api/scores', scoreSubmitLimiter);
 // Routes
 app.use('/api/scores', scoresRouter);
 app.use('/api/sessions', sessionsRouter);
+app.use('/api/payments', paymentsRouter);
 
 // Health check (both paths for convenience)
 const healthHandler = (req, res) => {
