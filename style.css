@@ -1116,3 +1116,147 @@ body {
   font-weight: bold;
 }
 
+/* ── Upgrade All Section ── */
+#upgrade-all-section {
+  margin: 6px 0;
+  text-align: center;
+}
+
+#upgrade-all-btn {
+  width: 100%;
+  padding: 8px;
+  background: linear-gradient(135deg, #1a4a8a, #0f3460);
+  color: #ffd700;
+  border: 1px solid #2a6ac0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+#upgrade-all-btn:hover {
+  background: linear-gradient(135deg, #2a6ac0, #1a4a8a);
+  border-color: #4a90d9;
+}
+
+/* ── Centralized Upgrade Panel ── */
+#upgrade-panel {
+  background: #0a1e3d;
+  border: 1px solid #1a4a8a;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+#upgrade-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+#upgrade-panel-header h3 {
+  color: #ffd700;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+#upgrade-panel-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+#upgrade-panel-close:hover {
+  color: #fff;
+}
+
+#upgrade-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.upgrade-panel-tower {
+  background: #0f3460;
+  border: 1px solid #1a4a8a;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.upgrade-panel-tower-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.upgrade-panel-tower-name {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #e0e0e0;
+}
+
+.upgrade-panel-tower-level {
+  font-size: 0.7rem;
+  color: #00ff88;
+  font-weight: bold;
+}
+
+.upgrade-panel-tower-stats {
+  font-size: 0.7rem;
+  color: #a8b2c1;
+  margin-bottom: 4px;
+}
+
+.upgrade-panel-tower-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.upgrade-panel-next-btn {
+  flex: 1;
+  padding: 5px 8px;
+  background: #1a4a8a;
+  border: 1px solid #2a6ac0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #e0e0e0;
+  font-size: 0.72rem;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.upgrade-panel-next-btn:hover:not(:disabled) {
+  background: #2a6ac0;
+  border-color: #4a90d9;
+}
+
+.upgrade-panel-next-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.upgrade-panel-next-btn.cant-afford {
+  border-color: #e74c3c;
+  opacity: 0.7;
+}
+
+.upgrade-panel-maxed {
+  font-size: 0.72rem;
+  color: #2ecc71;
+  font-weight: bold;
+  text-align: center;
+  padding: 4px;
+}
+

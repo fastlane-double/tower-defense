@@ -230,13 +230,25 @@
         </div>
       </div>
 
+      <div id="upgrade-all-section">
+        <button id="upgrade-all-btn" onclick="toggleUpgradePanel()">🔧 업그레이드 창</button>
+      </div>
+
+      <div id="upgrade-panel" style="display:none">
+        <div id="upgrade-panel-header">
+          <h3>🔧 전체 타워 업그레이드</h3>
+          <button id="upgrade-panel-close" onclick="toggleUpgradePanel()">✕</button>
+        </div>
+        <div id="upgrade-panel-list"></div>
+      </div>
+
       <div id="instructions">
         <p>🖱 잔디칸 클릭 → 타워 배치</p>
         <p>🔧 배치된 타워 클릭 → 업그레이드</p>
         <p>❤️ 적이 성에 도달하면 HP 감소</p>
         <p>👹 10웨이브마다 보스 등장!</p>
         <p>👑 <span style="color:#ffd700">프리미엄 타워</span>로 고단계 공략!</p>
-        <p style="margin-top:6px;font-size:10px;color:#888;">⌨ 단축키: 1-8 타워 · Space 웨이브 · S 판매 · F 속도 · A 자동 · N 폭탄 · M 음소거 · Esc 취소</p>
+        <p style="margin-top:6px;font-size:10px;color:#888;">⌨ 단축키: 1-8 타워 · Space 웨이브 · S 판매 · F 속도 · A 자동 · N 폭탄 · M 음소거 · U 업그레이드 · Esc 취소</p>
       </div>
     </div>
 

@@ -547,8 +547,12 @@ function updateMobileUI() {
     const type = btn.dataset.tower;
     const def = TOWER_DEFS[type];
     if (!def) return;
+    const currentCost = getTowerCost(type);
     btn.classList.toggle('selected', selectedTowerType === type);
-    btn.classList.toggle('not-affordable', gold < def.cost);
+    btn.classList.toggle('not-affordable', gold < currentCost);
+    // Update mobile cost display
+    const costSpan = btn.querySelector('span');
+    if (costSpan) costSpan.textContent = currentCost;
   });
 
   // Update mobile action button states
@@ -1381,6 +1385,7 @@ let selectedTowerType = null;
 let sellMode = false;
 let hoveredCell = null;
 let selectedTower = null;  // currently clicked tower for upgrade shop
+let towerPurchaseCount = {};  // tracks how many of each tower type purchased (for price scaling)
 let nukeBombs = 0;         // nuke bomb inventory
 let nukeBombMode = false;  // true when player is targeting a nuke drop
 let nukeCinematic = null;  // active nuke cinematic scene state (null = inactive)
@@ -1597,7 +1602,10 @@ function initKeyboardShortcuts() {
       case 'n': case 'N': e.preventDefault(); toggleNukeBombMode(); break;
       case 's': case 'S': e.preventDefault(); setSellMode(); break;
       case 'm': case 'M': e.preventDefault(); toggleMute(); break;
+      case 'u': case 'U': e.preventDefault(); toggleUpgradePanel(); break;
       case 'Escape': e.preventDefault();
+        { const up = document.getElementById('upgrade-panel');
+          if (up && up.style.display !== 'none') { up.style.display = 'none'; break; } }
         if (sellMode) { setSellMode(); break; }
         if (selectedTowerType) { selectedTowerType = null; clearTowerShopHint(); updateTowerButtons(); break; }
         if (selectedTower) { selectedTower = null; hideTowerInfo(); break; }
@@ -1671,6 +1679,7 @@ function resetGameState() {
   selectedTowerType = null;
   sellMode = false;
   selectedTower = null;
+  towerPurchaseCount = {};
   nukeBombs = 0;
   nukeBombMode = false;
   nukeCinematic = null;
@@ -1709,6 +1718,8 @@ function resetGameState() {
   document.getElementById('rank-display').style.display = 'none';
   document.getElementById('leaderboard-result-list').textContent = '불러오는 중...';
   hideTowerInfo();
+  const upgradePanel = document.getElementById('upgrade-panel');
+  if (upgradePanel) upgradePanel.style.display = 'none';
 }
 
 function resizeCanvas() {
@@ -2613,9 +2624,11 @@ function tryPlaceTower(col, row, type) {
     updateTowerButtons();
     return;
   }
-  if (gold < def.cost) { flashGold(); return; }
+  const scaledCost = getTowerCost(type);
+  if (gold < scaledCost) { flashGold(); return; }
 
-  gold -= def.cost;
+  gold -= scaledCost;
+  towerPurchaseCount[type] = (towerPurchaseCount[type] || 0) + 1;
   // Consume one use for consumable towers (e.g. god tower)
   if (def.consumable) {
     consumeTower(type);
@@ -2636,7 +2649,7 @@ function tryPlaceTower(col, row, type) {
     cooldownLeft: 0,
     angle: 0,
     upgradeLevel: 0,   // number of upgrades applied
-    totalSpent: def.cost,
+    totalSpent: scaledCost,
     placedAt: performance.now(), // for placement animation
     targetingMode: 'first', // first|last|strong|close
     kills: 0,
@@ -2683,7 +2696,8 @@ function showTowerShopHint(type) {
   if (!def) return;
   const aps = 1000 / def.fireRate;
   const dps = (def.damage * aps + (def.poisonDamage || 0)).toFixed(1);
-  let hint = `⚡ DPS: ${dps}`;
+  const currentCost = getTowerCost(type);
+  let hint = `💰 ${currentCost} | ⚡ DPS: ${dps}`;
   if (def.slowFactor < 1) hint += ` | 감속 ${Math.round((1-def.slowFactor)*100)}%`;
   if (def.aoeRadius > 0) hint += ` | AoE ${(def.aoeRadius/TILE).toFixed(1)}칸`;
   const el = document.getElementById('tower-shop-hint');
@@ -2693,6 +2707,16 @@ function showTowerShopHint(type) {
 function clearTowerShopHint() {
   const el = document.getElementById('tower-shop-hint');
   if (el) el.style.display = 'none';
+}
+
+// --- TOWER PRICE SCALING ---
+// Each tower type gets more expensive as you buy more of it
+// Formula: baseCost * (1 + 0.15 * purchaseCount) — 15% increase per purchase
+function getTowerCost(type) {
+  const def = TOWER_DEFS[type];
+  if (!def) return 0;
+  const count = towerPurchaseCount[type] || 0;
+  return Math.floor(def.cost * (1 + 0.15 * count));
 }
 
 function setSellMode() {
@@ -3168,10 +3192,16 @@ function updateTowerButtons() {
     if (!btn) continue;
     const def = TOWER_DEFS[type];
     const locked = def.premium && !isPremiumUnlocked(type);
+    const currentCost = getTowerCost(type);
     btn.classList.toggle('selected', selectedTowerType === type);
     btn.classList.toggle('sell-mode', sellMode);
-    btn.classList.toggle('not-affordable', !locked && gold < def.cost);
+    btn.classList.toggle('not-affordable', !locked && gold < currentCost);
     btn.classList.toggle('premium-locked', locked);
+    // Update cost display for non-premium towers (premium handled by updatePremiumUI)
+    if (!def.premium) {
+      const costEl = btn.querySelector('.tower-cost');
+      if (costEl) costEl.textContent = `💰 ${currentCost}`;
+    }
     if (HOTKEY_BADGE[type] && !btn.querySelector('.hotkey-badge')) {
       const badge = document.createElement('span');
       badge.className = 'hotkey-badge';
@@ -3198,7 +3228,8 @@ function updatePremiumUI() {
         const count = getConsumableCount(type);
         priceEl.textContent = count > 0 ? `${count}회 남음` : `🔒 ${def.premiumPrice}`;
       } else {
-        priceEl.textContent = locked ? `🔒 ${def.premiumPrice}` : `💰 ${def.cost}`;
+        const currentCost = getTowerCost(type);
+        priceEl.textContent = locked ? `🔒 ${def.premiumPrice}` : `💰 ${currentCost}`;
       }
     }
     // Update premium-locked class for consumable towers
@@ -3328,6 +3359,7 @@ function applyUpgrade(tower, upgradeIdx) {
 
   updateUI();
   showUpgradeShop(tower); // refresh shop display
+  refreshUpgradePanel(); // refresh centralized panel if open
 }
 
 function sellSelectedTower() {
@@ -3340,6 +3372,88 @@ function sellSelectedTower() {
   if (idx !== -1) towers.splice(idx, 1);
   hideUpgradeShop();
   updateUI();
+}
+
+// --- CENTRALIZED UPGRADE PANEL ---
+function toggleUpgradePanel() {
+  const panel = document.getElementById('upgrade-panel');
+  if (!panel) return;
+  if (panel.style.display === 'none') {
+    refreshUpgradePanel();
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function refreshUpgradePanel() {
+  const panel = document.getElementById('upgrade-panel');
+  if (!panel || panel.style.display === 'none') return;
+  const list = document.getElementById('upgrade-panel-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (towers.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:#888;font-size:0.75rem;padding:8px;">배치된 타워가 없습니다</div>';
+    return;
+  }
+
+  towers.forEach((tower, towerIdx) => {
+    const def = TOWER_DEFS[tower.type];
+    if (!def) return;
+
+    const card = document.createElement('div');
+    card.className = 'upgrade-panel-tower';
+
+    const aps = 1000 / tower.fireRate;
+    const dps = (tower.damage * aps + (tower.poisonDamage || 0)).toFixed(1);
+
+    // Header: tower name + level
+    const header = document.createElement('div');
+    header.className = 'upgrade-panel-tower-header';
+    header.innerHTML = `<span class="upgrade-panel-tower-name">${def.emoji} ${def.name}</span>` +
+      `<span class="upgrade-panel-tower-level">Lv.${tower.upgradeLevel}/${def.upgrades.length}</span>`;
+    card.appendChild(header);
+
+    // Stats line
+    const stats = document.createElement('div');
+    stats.className = 'upgrade-panel-tower-stats';
+    stats.textContent = `DMG: ${tower.damage} | DPS: ${dps} | 위치: (${tower.col+1},${tower.row+1})`;
+    card.appendChild(stats);
+
+    // Next upgrade button or maxed indicator
+    if (tower.upgradeLevel >= def.upgrades.length) {
+      const maxed = document.createElement('div');
+      maxed.className = 'upgrade-panel-maxed';
+      maxed.textContent = '✅ 최대 레벨';
+      card.appendChild(maxed);
+    } else {
+      const upg = def.upgrades[tower.upgradeLevel];
+      const canAfford = gold >= upg.cost;
+      const row = document.createElement('div');
+      row.className = 'upgrade-panel-tower-next';
+
+      const btn = document.createElement('button');
+      btn.className = 'upgrade-panel-next-btn' + (canAfford ? '' : ' cant-afford');
+      btn.disabled = !canAfford;
+      btn.innerHTML = `<strong>${upg.name}</strong> — ${upg.description}<br><span style="color:#ffd700;">💰 ${upg.cost}</span>`;
+      btn.onclick = () => {
+        applyUpgrade(tower, tower.upgradeLevel);
+      };
+      row.appendChild(btn);
+      card.appendChild(row);
+    }
+
+    // Click to highlight tower on map
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', (e) => {
+      if (e.target.tagName === 'BUTTON') return; // don't trigger on upgrade button click
+      selectedTower = tower;
+      showUpgradeShop(tower);
+    });
+
+    list.appendChild(card);
+  });
 }
 
 function flashGold() {
@@ -3582,6 +3696,7 @@ function updateUI() {
     prevUiGold = gold;
     updateTowerButtons();
     updateNukeBombUI();
+    refreshUpgradePanel();
     if (gold >= 1000) checkAchievements();
   }
   if (currentWave !== prevUiWave) {
