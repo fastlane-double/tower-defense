@@ -76,6 +76,7 @@ function getAudioCtx() {
  */
 function playTone(freq, type = 'sine', duration = 0.15, gain = 0.3, freqEnd = null) {
   if (soundMuted) return;
+  if (document.hidden) return;  // skip sounds while tab is in background
   if (_activeSounds >= MAX_CONCURRENT_SOUNDS) return;
   try {
     const ctx = getAudioCtx();
@@ -1353,6 +1354,8 @@ let teslaArcs = [];           // [{sx,sy,ex,ey,life,maxLife,color,segments}] —
 
 let lastTime = 0;
 let animId = null;
+let _bgInterval = null;  // setInterval ID for background game loop
+let _bgLastTime = 0;     // last update timestamp for background loop
 
 // Screen shake state
 let screenShakeDuration = 0;
@@ -1452,13 +1455,66 @@ window.onload = function() {
 
 
 
-// ── TAB VISIBILITY AUTO-PAUSE ───────────────────────────────────────────────────
-let tabHiddenPaused = false;
+// ── BACKGROUND EXECUTION (Page Visibility API) ─────────────────────────────────
+// When the tab is hidden, browsers throttle/stop requestAnimationFrame.
+// We switch to a setInterval-based update loop (no rendering) so the game
+// keeps running in the background, then seamlessly resume RAF when visible.
+let _bgSpeedWasReduced = false;  // track if we reduced speed on hide
+const BG_TICK_MS = 100;          // background update interval (~10 tps)
+
+function _startBackgroundLoop() {
+  if (_bgInterval) return;
+  _bgLastTime = performance.now();
+  _bgInterval = setInterval(() => {
+    if (gameOver || gamePaused) return;
+    const now = performance.now();
+    const dt = Math.min((now - _bgLastTime) / 1000, 0.1);
+    _bgLastTime = now;
+    update(dt, now);
+  }, BG_TICK_MS);
+}
+
+function _stopBackgroundLoop() {
+  if (_bgInterval) { clearInterval(_bgInterval); _bgInterval = null; }
+}
+
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && waveInProgress && !gameOver && !stageTransition) {
-    if (speedMultiplier > 1) { toggleSpeed(); tabHiddenPaused = true; }
-  } else if (!document.hidden && tabHiddenPaused) {
-    tabHiddenPaused = false;
+  if (document.hidden) {
+    // ── Tab hidden: switch from RAF to interval-based updates ──
+    if (gameOver || !animId) return;
+    // Stop RAF (browser would throttle it anyway)
+    cancelAnimationFrame(animId);
+    animId = null;
+    // Reduce to 1x speed in background to keep simulation stable
+    if (speedMultiplier > 1) {
+      toggleSpeed();
+      _bgSpeedWasReduced = true;
+    }
+    // Suspend audio to save resources
+    if (audioCtx && audioCtx.state === 'running') {
+      audioCtx.suspend();
+    }
+    stopBgm();
+    // Start interval-based game logic loop
+    _startBackgroundLoop();
+  } else {
+    // ── Tab visible: switch back to RAF ──
+    _stopBackgroundLoop();
+    // Restore speed if we reduced it
+    if (_bgSpeedWasReduced) {
+      toggleSpeed();
+      _bgSpeedWasReduced = false;
+    }
+    // Resume audio
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    if (!soundMuted) startBgm();
+    // Restart RAF loop with fresh timestamp to avoid large dt jump
+    if (!gameOver) {
+      lastTime = performance.now();
+      animId = requestAnimationFrame(gameLoop);
+    }
   }
 });
 
@@ -1536,6 +1592,7 @@ function showOnboardingHintIfNew() {
 }
 
 function resetGameState() {
+  _stopBackgroundLoop();  // clean up any background loop from previous game
   towers = [];
   enemies = [];
   projectiles = [];
@@ -1721,6 +1778,7 @@ function onEnemyKilled(x, y, baseReward) {
 // ── FLOATING TEXT ──────────────────────────────────────────
 const MAX_FLOATING_TEXTS = 60;
 function spawnFloatingText(x, y, text, color, size = 13) {
+  if (document.hidden) return;  // skip visual-only effects in background
   if (floatingTexts.length >= MAX_FLOATING_TEXTS) {
     floatingTexts.shift();
   }
@@ -2302,7 +2360,7 @@ function dealDamage(enemy, dmg, slowFactor, poisonDmgPerSec, towerRef) {
 // ============================================================
 // PARTICLES
 // ============================================================
-function pushParticle(p) { if (p) particles.push(p); }
+function pushParticle(p) { if (p && !document.hidden) particles.push(p); }
 
 function spawnSpark(x, y, color) {
   for (let i = 0; i < 5; i++) {
@@ -3133,6 +3191,7 @@ function getWaveThreatLevel(waveIdx) {
 }
 
 function showOverlay() {
+  _stopBackgroundLoop();  // clean up background loop if running
   stopBgm();
   const overlay = document.getElementById('overlay');
   overlay.style.display = 'flex';
@@ -4260,6 +4319,7 @@ function drawProjectiles() {
 
 // ── TESLA CHAIN LIGHTNING ──────────────────────────────────
 function spawnTeslaArc(sx, sy, ex, ey, color) {
+  if (document.hidden) return;  // skip visual-only effects in background
   const segments = [];
   const steps = 6 + Math.floor(Math.random() * 4);
   let px = sx, py = sy;
