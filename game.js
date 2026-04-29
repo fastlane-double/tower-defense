@@ -12,6 +12,7 @@ function isMobile() {
 
 // --- PREMIUM SYSTEM ---
 // Premium towers unlock via purchase. DEV_MODE bypasses the lock.
+// Some premium towers are "consumable" — they grant a limited number of uses per purchase.
 let DEV_MODE = false; // set true to unlock all premium towers free
 const PREMIUM_TOWER_TYPES = ['tesla', 'frost', 'flame', 'nuke', 'voidray', 'god'];
 // Track which premium towers are unlocked (persisted in localStorage)
@@ -26,13 +27,62 @@ function setPremiumUnlocked(set) {
   localStorage.setItem('td_premium', JSON.stringify([...set]));
 }
 function unlockPremiumTower(type) {
-  const set = getPremiumUnlocked();
-  set.add(type);
-  setPremiumUnlocked(set);
+  const def = TOWER_DEFS[type];
+  if (def && def.consumable) {
+    // Consumable towers: increment use count instead of permanent unlock
+    const counts = getConsumableCounts();
+    counts[type] = (counts[type] || 0) + 1;
+    setConsumableCounts(counts);
+  } else {
+    const set = getPremiumUnlocked();
+    set.add(type);
+    setPremiumUnlocked(set);
+  }
 }
 function isPremiumUnlocked(type) {
-  return DEV_MODE || getPremiumUnlocked().has(type);
+  if (DEV_MODE) return true;
+  const def = TOWER_DEFS[type];
+  if (def && def.consumable) {
+    return getConsumableCount(type) > 0;
+  }
+  return getPremiumUnlocked().has(type);
 }
+// --- CONSUMABLE TOWER SYSTEM ---
+// Consumable towers have limited uses (e.g. god tower: 1 use per purchase)
+function getConsumableCounts() {
+  try {
+    return JSON.parse(localStorage.getItem('td_consumable') || '{}');
+  } catch { return {}; }
+}
+function setConsumableCounts(counts) {
+  localStorage.setItem('td_consumable', JSON.stringify(counts));
+}
+function getConsumableCount(type) {
+  return getConsumableCounts()[type] || 0;
+}
+function consumeTower(type) {
+  const counts = getConsumableCounts();
+  if ((counts[type] || 0) > 0) {
+    counts[type]--;
+    if (counts[type] <= 0) delete counts[type];
+    setConsumableCounts(counts);
+    return true;
+  }
+  return false;
+}
+// Migrate old permanent god tower unlock → remove from permanent set
+// (players who previously unlocked god tower permanently lose it;
+//  they can re-purchase as consumable)
+(function migrateGodTowerToConsumable() {
+  try {
+    const data = JSON.parse(localStorage.getItem('td_premium') || '[]');
+    const set = new Set(data);
+    if (set.has('god')) {
+      set.delete('god');
+      localStorage.setItem('td_premium', JSON.stringify([...set]));
+    }
+  } catch {}
+})();
 function toggleDevMode() {
   DEV_MODE = !DEV_MODE;
   const btn = document.getElementById('dev-mode-btn');
@@ -880,10 +930,10 @@ const TOWER_DEFS = {
     ],
   },
 
-  // ===== OP PREMIUM TOWER ($1 permanent unlock) =====
+  // ===== OP PREMIUM TOWER (consumable — 1 use per purchase) =====
   god: {
     name: '갓 타워',
-    cost: 400,
+    cost: 0,
     color: '#ffd700',
     accentColor: '#ffffff',
     range: 8.0 * TILE,
@@ -895,12 +945,13 @@ const TOWER_DEFS = {
     aoeRadius: TILE * 2.0,
     slowFactor: 0.1,
     poisonDamage: 50,
-    sellValue: 200,
+    sellValue: 0,
     emoji: '👑',
     premium: true,
+    consumable: true,
     premiumPrice: '$1.00',
     premiumCoinCost: 9999,
-    premiumDesc: '전지전능한 궁극의 타워! $1로 영구 잠금해제. 모든 것을 파괴한다.',
+    premiumDesc: '전지전능한 궁극의 타워! 1회 사용 가능. 배치 시 소모됩니다.',
     upgrades: [
       { name: '천벌', cost: 300, description: '데미지 +500, 공격속도 +30%, 범위 +50%', apply: t => { t.damage += 500; t.fireRate = Math.floor(t.fireRate * 0.7); t.aoeRadius *= 1.5; } },
       { name: '심판', cost: 500, description: '데미지 +1000, 사거리 +2칸, 독 +50/초', apply: t => { t.damage += 1000; t.range += 2 * TILE; t.poisonDamage += 50; } },
@@ -2559,6 +2610,11 @@ function tryPlaceTower(col, row, type) {
   if (gold < def.cost) { flashGold(); return; }
 
   gold -= def.cost;
+  // Consume one use for consumable towers (e.g. god tower)
+  if (def.consumable) {
+    consumeTower(type);
+    selectedTowerType = null; // deselect after consumable placement
+  }
   sfxTowerPlace();
   const cx = col * TILE + TILE / 2;
   const cy = row * TILE + TILE / 2;
@@ -2581,6 +2637,8 @@ function tryPlaceTower(col, row, type) {
     totalDmgDealt: 0,
   });
   uiDirty = true;
+  updateTowerButtons();
+  updatePremiumUI();
   updateUI();
 }
 
@@ -3120,13 +3178,22 @@ function updatePremiumUI() {
   for (const type of PREMIUM_TOWER_TYPES) {
     const btn = document.getElementById('btn-' + type);
     if (!btn) continue;
+    const def = TOWER_DEFS[type];
     const locked = !isPremiumUnlocked(type);
     const lockEl = btn.querySelector('.premium-lock-badge');
     if (lockEl) lockEl.style.display = locked ? 'flex' : 'none';
     const priceEl = btn.querySelector('.tower-cost');
     if (priceEl) {
-      const def = TOWER_DEFS[type];
-      priceEl.textContent = locked ? `🔒 ${def.premiumPrice}` : `💰 ${def.cost}`;
+      if (def.consumable) {
+        const count = getConsumableCount(type);
+        priceEl.textContent = count > 0 ? `${count}회 남음` : `🔒 ${def.premiumPrice}`;
+      } else {
+        priceEl.textContent = locked ? `🔒 ${def.premiumPrice}` : `💰 ${def.cost}`;
+      }
+    }
+    // Update premium-locked class for consumable towers
+    if (def.consumable) {
+      btn.classList.toggle('premium-locked', locked);
     }
   }
 }
@@ -3301,7 +3368,9 @@ function showPurchaseModal(type) {
   if (coinOption && coinBtn && def.premiumCoinCost) {
     coinOption.style.display = 'block';
     const canAfford = gold >= def.premiumCoinCost;
-    coinBtn.textContent = `💰 ${def.premiumCoinCost.toLocaleString()} 코인으로 구매`;
+    coinBtn.textContent = def.consumable
+      ? `💰 ${def.premiumCoinCost.toLocaleString()} 코인으로 1회 구매`
+      : `💰 ${def.premiumCoinCost.toLocaleString()} 코인으로 구매`;
     coinBtn.disabled = !canAfford;
     coinBtn.style.background = canAfford ? '#ffd700' : '#666';
     coinBtn.style.color = canAfford ? '#000' : '#aaa';
@@ -3347,7 +3416,11 @@ function confirmCoinPurchase() {
   updateUI();
   const notif = document.createElement('div');
   notif.className = 'unlock-notif';
-  notif.textContent = `✅ ${def.name} 코인으로 잠금 해제! (-💰${def.premiumCoinCost.toLocaleString()})`;
+  if (def.consumable) {
+    notif.textContent = `✅ ${def.name} 1회 사용권 구매! (-💰${def.premiumCoinCost.toLocaleString()})`;
+  } else {
+    notif.textContent = `✅ ${def.name} 코인으로 잠금 해제! (-💰${def.premiumCoinCost.toLocaleString()})`;
+  }
   document.getElementById('game-container').appendChild(notif);
   setTimeout(() => notif.remove(), 3000);
 }
