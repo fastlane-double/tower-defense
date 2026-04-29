@@ -3,7 +3,8 @@
 // ============================================================
 
 // --- SERVER API ---
-const API_BASE = 'http://localhost:3000';
+// Use same-origin when served by the game server; fall back to localhost:3000 for local dev
+const API_BASE = window.GAME_API_BASE || (location.port === '3000' ? '' : 'http://localhost:3000');
 
 // --- MOBILE DETECTION ---
 function isMobile() {
@@ -3542,29 +3543,43 @@ function closePurchaseModal() {
 // --- PAYMENT SYSTEM ---
 // Instant payment: order + auto-confirm in one step (server records everything)
 async function processPayment(productId) {
-  // 1. Create order on server
-  const orderRes = await fetch(API_BASE + '/api/payments/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ product_id: productId, player_name: playerName }),
-  });
+  if (!playerName) {
+    throw new Error('플레이어 이름이 설정되지 않았습니다');
+  }
+
+  let orderRes;
+  try {
+    // 1. Create order on server
+    orderRes = await fetch(API_BASE + '/api/payments/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_id: productId, player_name: playerName }),
+    });
+  } catch (e) {
+    throw new Error('서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.');
+  }
   if (!orderRes.ok) {
     const err = await orderRes.json().catch(() => ({}));
     throw new Error(err.error || '주문 생성 실패');
   }
   const order = await orderRes.json();
 
-  // 2. Confirm payment immediately
-  const paymentKey = 'pay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      paymentKey,
-      orderId: order.orderId,
-      amount: order.amount,
-    }),
-  });
+  let confirmRes;
+  try {
+    // 2. Confirm payment immediately
+    const paymentKey = 'pay_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    confirmRes = await fetch(API_BASE + '/api/payments/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paymentKey,
+        orderId: order.orderId,
+        amount: order.amount,
+      }),
+    });
+  } catch (e) {
+    throw new Error('결제 확인 중 서버 연결 실패');
+  }
   if (!confirmRes.ok) {
     const err = await confirmRes.json().catch(() => ({}));
     throw new Error(err.error || '결제 확인 실패');

@@ -2,6 +2,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const rateLimit = require('express-rate-limit');
 
 const scoresRouter = require('./routes/scores');
@@ -14,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 // CORS configuration - allow only specified origins
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:8080', 'http://localhost:3001', 'http://127.0.0.1:8080'];
+  : ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:8080', 'http://127.0.0.1:3000'];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -74,9 +75,16 @@ const healthHandler = (req, res) => {
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
+// Serve game static files from parent directory (same-origin eliminates CORS issues)
+const GAME_DIR = path.join(__dirname, '..', '..');
+app.use(express.static(GAME_DIR));
+
+// SPA fallback: serve index.html for non-API routes
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  res.sendFile(path.join(GAME_DIR, 'index.html'));
 });
 
 // Error handler
