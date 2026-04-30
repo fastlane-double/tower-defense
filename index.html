@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>🏰 타워 디펜스 — 무한 웨이브를 버텨라!</title>
   <meta name="description" content="타워를 배치하고 적의 침략을 막아라! 8종 일반 타워 + 6종 프리미엄 타워, 무한 웨이브 + 10웨이브마다 보스전, 리더보드 지원.">
   <meta name="theme-color" content="#1a1a2e">
@@ -267,20 +267,21 @@
           <span id="mobile-wave">🌊 0</span>
           <span id="mobile-score">🏆 0</span>
         </div>
+        <div id="mobile-tower-hint"></div>
         <div id="mobile-tower-row">
-          <button class="mtb" data-tower="arrow" onclick="selectTower('arrow')">🏹<span>50</span></button>
-          <button class="mtb" data-tower="cannon" onclick="selectTower('cannon')">💣<span>100</span></button>
-          <button class="mtb" data-tower="magic" onclick="selectTower('magic')">🔮<span>125</span></button>
-          <button class="mtb" data-tower="sniper" onclick="selectTower('sniper')">🎯<span>150</span></button>
-          <button class="mtb" data-tower="poison" onclick="selectTower('poison')">☠️<span>125</span></button>
-          <button class="mtb" data-tower="laser" onclick="selectTower('laser')">⚡<span>200</span></button>
-          <button class="mtb" data-tower="storm" onclick="selectTower('storm')">🌪️<span>175</span></button>
-          <button class="mtb" data-tower="gravity" onclick="selectTower('gravity')">🕳️<span>225</span></button>
-          <button class="mtb mtb-more" onclick="toggleMobileSidebar()">⋯</button>
+          <button class="mtb" data-tower="arrow" onclick="selectTower('arrow')" aria-label="화살 타워 50">🏹<span>50</span></button>
+          <button class="mtb" data-tower="cannon" onclick="selectTower('cannon')" aria-label="대포 타워 100">💣<span>100</span></button>
+          <button class="mtb" data-tower="magic" onclick="selectTower('magic')" aria-label="마법 타워 125">🔮<span>125</span></button>
+          <button class="mtb" data-tower="sniper" onclick="selectTower('sniper')" aria-label="저격 타워 150">🎯<span>150</span></button>
+          <button class="mtb" data-tower="poison" onclick="selectTower('poison')" aria-label="독 타워 125">☠️<span>125</span></button>
+          <button class="mtb" data-tower="laser" onclick="selectTower('laser')" aria-label="레이저 타워 200">⚡<span>200</span></button>
+          <button class="mtb" data-tower="storm" onclick="selectTower('storm')" aria-label="폭풍 타워 175">🌪️<span>175</span></button>
+          <button class="mtb" data-tower="gravity" onclick="selectTower('gravity')" aria-label="중력 타워 225">🕳️<span>225</span></button>
+          <button class="mtb mtb-more" onclick="toggleMobileSidebar()" aria-label="더보기">⋯</button>
         </div>
         <div id="mobile-action-row">
-          <button class="mab" id="mobile-wave-btn" onclick="startNextWave()">▶ 웨이브</button>
-          <button class="mab" id="mobile-speed-btn" onclick="toggleSpeed()">1x</button>
+          <button class="mab" id="mobile-wave-btn" onclick="startNextWave()">▶ 1</button>
+          <button class="mab" id="mobile-speed-btn" onclick="toggleSpeed()">▶</button>
           <button class="mab" id="mobile-auto-btn" onclick="toggleAutoWave()">🔄</button>
           <button class="mab" id="mobile-sell-btn" onclick="setSellMode()">🔨</button>
           <button class="mab" id="mobile-mute-btn" onclick="toggleMute()">🔊</button>

@@ -15,6 +15,9 @@ const API_BASE = (function() {
 function isMobile() {
   return window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
 }
+function isLandscape() {
+  return window.innerWidth > window.innerHeight;
+}
 
 // --- PREMIUM SYSTEM ---
 // Premium towers unlock via purchase. DEV_MODE bypasses the lock.
@@ -550,7 +553,13 @@ function updateMobileUI() {
   const mgold = document.getElementById('mobile-gold');
   const mwave = document.getElementById('mobile-wave');
   const mscore = document.getElementById('mobile-score');
-  if (mhp) mhp.textContent = '❤️ ' + hp;
+  if (mhp) {
+    mhp.textContent = '❤️ ' + hp;
+    const maxHp = GAME_SETTINGS.maxHp;
+    const hpRatio = hp / maxHp;
+    mhp.classList.toggle('hp-low', hpRatio <= 0.2);
+    mhp.classList.toggle('hp-mid', hpRatio > 0.2 && hpRatio <= 0.5);
+  }
   if (mgold) mgold.textContent = '💰 ' + gold;
   if (mwave) mwave.textContent = '🌊 ' + currentWave;
   if (mscore) mscore.textContent = '🏆 ' + score;
@@ -569,10 +578,26 @@ function updateMobileUI() {
     if (costSpan) costSpan.textContent = currentCost;
   });
 
+  // Update mobile tower hint
+  const mhint = document.getElementById('mobile-tower-hint');
+  if (mhint) {
+    if (selectedTowerType) {
+      const def = TOWER_DEFS[selectedTowerType];
+      if (def) {
+        const currentCost = getTowerCost(selectedTowerType);
+        const aps = 1000 / def.fireRate;
+        const dps = (def.damage * aps + (def.poisonDamage || 0)).toFixed(1);
+        mhint.textContent = `${def.name} | 💰${currentCost} | ⚡DPS:${dps}`;
+      }
+    } else {
+      mhint.textContent = '';
+    }
+  }
+
   // Update mobile action button states
   const speedBtn = document.getElementById('mobile-speed-btn');
   if (speedBtn) {
-    speedBtn.textContent = speedMultiplier > 1 ? '2x' : '1x';
+    speedBtn.textContent = speedMultiplier > 1 ? '⏩' : '▶';
     speedBtn.classList.toggle('active', speedMultiplier > 1);
   }
   const autoBtn = document.getElementById('mobile-auto-btn');
@@ -581,6 +606,18 @@ function updateMobileUI() {
   if (sellBtn) sellBtn.classList.toggle('active', sellMode);
   const muteBtn = document.getElementById('mobile-mute-btn');
   if (muteBtn) muteBtn.textContent = soundMuted ? '🔇' : '🔊';
+
+  // Update mobile wave button label
+  const waveBtn = document.getElementById('mobile-wave-btn');
+  if (waveBtn) {
+    if (waveCountdownActive) {
+      waveBtn.textContent = `⏳ ${Math.ceil(waveCountdown)}`;
+    } else if (waveInProgress) {
+      waveBtn.textContent = '⚔️ 진행중';
+    } else {
+      waveBtn.textContent = `▶ ${currentWave + 1}`;
+    }
+  }
 }
 
 // --- CONSTANTS ---
@@ -1635,6 +1672,16 @@ function initGame() {
   resizeCanvas();
   if (!_gameInitialized) {
     window.addEventListener('resize', resizeCanvas);
+    // Handle orientation changes (mobile)
+    if (screen.orientation) {
+      screen.orientation.addEventListener('change', () => {
+        setTimeout(resizeCanvas, 100);
+      });
+    } else {
+      window.addEventListener('orientationchange', () => {
+        setTimeout(resizeCanvas, 200);
+      });
+    }
     canvas.addEventListener('mousemove', onMouseMove);
     canvas.addEventListener('click', onCanvasClick);
     canvas.addEventListener('mouseleave', () => { hoveredCell = null; });
@@ -1642,6 +1689,19 @@ function initGame() {
     canvas.addEventListener('touchstart', onTouchStart, { passive: false });
     canvas.addEventListener('touchmove', onTouchMove, { passive: false });
     canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+    // Close upgrade shop when tapping canvas (mobile)
+    canvas.addEventListener('touchstart', function(e) {
+      if (isMobile() && selectedTower && document.getElementById('upgrade-shop').style.display === 'block') {
+        const touch = e.touches[0];
+        const shop = document.getElementById('upgrade-shop');
+        const rect = shop.getBoundingClientRect();
+        // If touch is outside the upgrade shop, close it
+        if (touch.clientX < rect.left || touch.clientX > rect.right ||
+            touch.clientY < rect.top || touch.clientY > rect.bottom) {
+          hideUpgradeShop();
+        }
+      }
+    }, { passive: true });
     initKeyboardShortcuts();
     _gameInitialized = true;
   }
@@ -1749,7 +1809,11 @@ function resizeCanvas() {
   canvas.style.marginLeft = ((container.clientWidth - canvas.width * scale) / 2) + 'px';
   canvas.style.marginTop = ((container.clientHeight - canvas.height * scale) / 2) + 'px';
   // Toggle mobile body class for CSS
-  document.body.classList.toggle('is-mobile', isMobile());
+  const mobile = isMobile();
+  document.body.classList.toggle('is-mobile', mobile);
+  document.body.classList.toggle('is-landscape', mobile && isLandscape());
+  // Mark dirty so map redraws at correct resolution
+  mapCacheDirty = true;
 }
 
 // ============================================================
@@ -1794,7 +1858,7 @@ function drawPauseOverlay() {
   ctx.fillText('⏸ 일시정지', canvas.width / 2, canvas.height / 2 - 20);
   ctx.font = `${TILE * 0.5}px sans-serif`;
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.fillText('P 키로 계속', canvas.width / 2, canvas.height / 2 + 30);
+  ctx.fillText(isMobile() ? '화면을 터치하세요' : 'P 키로 계속', canvas.width / 2, canvas.height / 2 + 30);
   ctx.restore();
 }
 
@@ -2545,7 +2609,9 @@ function onCanvasClick(e) {
 // ============================================================
 let _touchStartPos = null;
 let _touchStartTime = 0;
-const TOUCH_TAP_THRESHOLD = 15; // px movement threshold to distinguish tap from drag
+const TOUCH_TAP_THRESHOLD = 20; // px movement threshold to distinguish tap from drag
+const TOUCH_LONG_PRESS_MS = 500; // ms threshold for long press
+let _longPressTimer = null;
 
 function getTouchCanvasCoords(touch) {
   const rect = canvas.getBoundingClientRect();
@@ -2566,6 +2632,21 @@ function onTouchStart(e) {
     _touchStartTime = performance.now();
     // Update hovered cell immediately for visual feedback
     hoveredCell = { col: Math.floor(mx / TILE), row: Math.floor(my / TILE), mx, my };
+
+    // Long press detection for tower info
+    if (_longPressTimer) clearTimeout(_longPressTimer);
+    _longPressTimer = setTimeout(() => {
+      if (!_touchStartPos) return;
+      const col = Math.floor(mx / TILE);
+      const row = Math.floor(my / TILE);
+      const t = towers.find(t => t.col === col && t.row === row);
+      if (t) {
+        selectedTower = t;
+        showUpgradeShop(t);
+        _touchStartPos = null; // consume the touch
+        if (navigator.vibrate) navigator.vibrate(30); // haptic feedback
+      }
+    }, TOUCH_LONG_PRESS_MS);
   }
 }
 
@@ -2574,11 +2655,22 @@ function onTouchMove(e) {
   if (e.touches.length === 1) {
     const { mx, my } = getTouchCanvasCoords(e.touches[0]);
     hoveredCell = { col: Math.floor(mx / TILE), row: Math.floor(my / TILE), mx, my };
+    // Cancel long press if finger moved too much
+    if (_touchStartPos && _longPressTimer) {
+      const touch = e.touches[0];
+      const dx = touch.clientX - _touchStartPos.clientX;
+      const dy = touch.clientY - _touchStartPos.clientY;
+      if (Math.sqrt(dx * dx + dy * dy) > TOUCH_TAP_THRESHOLD) {
+        clearTimeout(_longPressTimer);
+        _longPressTimer = null;
+      }
+    }
   }
 }
 
 function onTouchEnd(e) {
   e.preventDefault();
+  if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
   if (e.changedTouches.length === 1 && _touchStartPos) {
     const touch = e.changedTouches[0];
     const dx = touch.clientX - _touchStartPos.clientX;
@@ -2597,6 +2689,8 @@ function onTouchEnd(e) {
 
 function handleCanvasTap(mx, my) {
   if (gameOver || nukeCinematic) return;
+  // Unpause on tap (mobile equivalent of pressing P)
+  if (gamePaused) { togglePause(); return; }
   const col = Math.floor(mx / TILE);
   const row = Math.floor(my / TILE);
   // Resume audio context on first touch (mobile autoplay policy)
@@ -3348,6 +3442,15 @@ function showUpgradeShop(tower) {
       tgtBtns.forEach(bb => bb.classList.toggle('active', bb === b));
     };
   });
+
+  // Add mobile close button if on mobile and not already present
+  if (isMobile() && !shop.querySelector('#upgrade-shop-close-mobile')) {
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'upgrade-shop-close-mobile';
+    closeBtn.textContent = '✕';
+    closeBtn.onclick = () => hideUpgradeShop();
+    shop.insertBefore(closeBtn, shop.firstChild);
+  }
 
   shop.style.display = 'block';
 }
