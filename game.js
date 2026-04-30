@@ -11,6 +11,20 @@ const API_BASE = (function() {
   return location.port === '3000' ? '' : 'http://localhost:3000';
 })();
 
+// --- POLYFILLS ---
+// roundRect polyfill for browsers that lack CanvasRenderingContext2D.roundRect
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+    const r = typeof radii === 'number' ? radii : (Array.isArray(radii) ? radii[0] : 0);
+    this.moveTo(x + r, y);
+    this.arcTo(x + w, y, x + w, y + h, r);
+    this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r);
+    this.arcTo(x, y, x + w, y, r);
+    this.closePath();
+  };
+}
+
 // --- MOBILE DETECTION ---
 function isMobile() {
   return window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
@@ -366,7 +380,7 @@ function unlockAchievement(id) {
 }
 
 function checkAchievements() {
-  const now = performance.now();
+  const now = Date.now();
   const elapsedSecs = sessionStartTime ? (now - sessionStartTime) / 1000 : 9999;
   const state = { totalKills, maxCombo, currentStage, hp, gold, currentWave, elapsedSecs };
   for (const ach of ACHIEVEMENTS) {
@@ -416,6 +430,7 @@ function toggleAutoWave() {
 
 let playerName = '';
 let sessionStartTime = null;
+let _scoreSubmitted = false; // guard against duplicate submissions
 
 // ── GAME SETTINGS (single mode, no difficulty selection) ─────
 const GAME_SETTINGS = {
@@ -462,6 +477,8 @@ function renderLeaderboard(el, scores, highlight) {
 
 async function submitScore(result) {
   if (!playerName) return;
+  if (_scoreSubmitted) return;
+  _scoreSubmitted = true;
   const durationSeconds = sessionStartTime
     ? Math.floor((Date.now() - sessionStartTime) / 1000)
     : 0;
@@ -1502,6 +1519,7 @@ function allocProjectile(props) {
   obj.aoeRadius = props.aoeRadius; obj.slowFactor = props.slowFactor;
   obj.poisonDamage = props.poisonDamage; obj.piercing = props.piercing;
   obj.dead = false; obj.towerType = props.towerType;
+  obj.towerRef = props.towerRef;
   obj.srcX = props.srcX; obj.srcY = props.srcY;
   obj.prevX = props.x; obj.prevY = props.y;
   return obj;
@@ -1749,6 +1767,7 @@ function resetGameState() {
   waveEnemyKilled = 0;
   gameOver = false;
   victory = false;
+  _scoreSubmitted = false;
   stageTransition = false;
   selectedTowerType = null;
   sellMode = false;
@@ -1986,7 +2005,7 @@ function _doStartNextWave() {
 
   sfxWaveStart();
   waveInProgress = true;
-  if (currentWave === 0 && !sessionStartTime) sessionStartTime = performance.now();
+  if (currentWave === 0 && !sessionStartTime) sessionStartTime = Date.now();
   waveStartTime = performance.now();
   spawnQueues = [];
 
@@ -3464,7 +3483,9 @@ function hideUpgradeShop() {
 function applyUpgrade(tower, upgradeIdx) {
   const def = TOWER_DEFS[tower.type];
   const upg = def.upgrades[upgradeIdx];
-  // Upgrade particle burst
+  if (gold < upg.cost) { flashGold(); return; }
+  if (tower.upgradeLevel !== upgradeIdx) return; // only apply in order
+  // Upgrade particle burst (after affordability check)
   const burstColor = upgradeIdx >= 2 ? '#ffd700' : def.accentColor;
   for (let i = 0; i < 20; i++) {
     const angle = (i / 20) * Math.PI * 2;
@@ -3473,8 +3494,6 @@ function applyUpgrade(tower, upgradeIdx) {
       Math.cos(angle) * speed, Math.sin(angle) * speed,
       0.5 + Math.random() * 0.4, 0.9, burstColor, 3 + Math.random() * 3));
   }
-  if (gold < upg.cost) { flashGold(); return; }
-  if (tower.upgradeLevel !== upgradeIdx) return; // only apply in order
 
   gold -= upg.cost;
   tower.totalSpent += upg.cost;
@@ -4543,7 +4562,7 @@ function drawHoverCell() {
   const hasTower = towers.find(t => t.col === col && t.row === row);
   if (tile === 0 && !hasTower && selectedTowerType && !sellMode) {
     const def = TOWER_DEFS[selectedTowerType];
-    const canAfford = gold >= def.cost;
+    const canAfford = gold >= getTowerCost(selectedTowerType);
     ctx.fillStyle = canAfford ? 'rgba(100,200,100,0.3)' : 'rgba(200,50,50,0.3)';
     ctx.fillRect(x, y, TILE, TILE);
     ctx.strokeStyle = canAfford ? 'rgba(100,255,100,0.8)' : 'rgba(255,80,80,0.8)';
