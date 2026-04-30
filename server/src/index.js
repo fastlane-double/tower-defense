@@ -116,6 +116,9 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Tower Defense Server running on port ${PORT}`);
+  if (process.env.NODE_ENV === 'production' && !process.env.TOSS_SECRET_KEY) {
+    console.warn('WARNING: TOSS_SECRET_KEY is not set. Payment confirmations will return 503.');
+  }
 });
 
 module.exports = app;
