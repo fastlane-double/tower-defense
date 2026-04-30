@@ -7,8 +7,14 @@
 // Fall back to same-origin when served by the game server, or localhost:3000 for local dev.
 const API_BASE = (function() {
   const cfg = window.GAME_API_BASE;
+  // Explicit API URL configured via environment variable
   if (cfg && cfg !== '__API_BASE_PLACEHOLDER__') return cfg;
-  return location.port === '3000' ? '' : 'http://localhost:3000';
+  // Same-origin: game served by the backend (production on Render, or local port 3000)
+  const host = location.hostname;
+  if (host !== 'localhost' && host !== '127.0.0.1') return '';
+  if (location.port === '3000') return '';
+  // Local dev with separate frontend server (e.g. port 8080)
+  return 'http://localhost:3000';
 })();
 
 // --- POLYFILLS ---

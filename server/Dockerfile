@@ -19,7 +19,7 @@ COPY src/ ./src/
 # Copy game static files to /app (parent of server dir)
 # Build context must be project root (../) for this to work.
 # See README-DEPLOY.md for build instructions.
-COPY index.html game.js style.css /app/
+COPY index.html game.js style.css config.js /app/
 
 # Create data directory for SQLite
 RUN mkdir -p /app/server/data
