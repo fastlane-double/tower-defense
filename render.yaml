@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: tower-defense-backend
+    runtime: docker
+    # Dockerfile lives in server/; build context is the repo root
+    # so static files (index.html, game.js, style.css) are accessible.
+    dockerfilePath: server/Dockerfile
+    # rootDirectory should be the repo root (default when not set)
+    plan: free  # 무료 티어 — 재배포 시 리더보드 데이터 초기화됨
+    region: singapore  # Closest to Korea; alternatives: ohio, frankfurt
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: CORS_ORIGINS
+        # Set this to your Render service URL after first deploy.
+        # Format: https://tower-defense-backend.onrender.com
+        # Multiple origins (comma-separated):
+        #   https://tower-defense-backend.onrender.com,https://yourdomain.com
+        sync: false
+      - key: TOSS_SECRET_KEY
+        # Toss Payments live secret key (sk_live_...).
+        # Leave unset to run in test/sandbox mode (payments auto-approved).
+        sync: false
+    # 무료 티어에서는 디스크 마운트 미지원 → 주석 처리
+    # 유료 Starter ($7/월)로 업그레이드 시 아래 주석 해제:
+    # disk:
+    #   name: tower-defense-data
+    #   mountPath: /app/server/data
+    #   sizeGB: 1

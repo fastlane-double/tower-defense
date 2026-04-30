@@ -93,28 +93,7 @@ curl https://your-app.up.railway.app/api/scores/leaderboard
 1. GitHub 저장소 루트에 `render.yaml`이 있어야 합니다.
    현재 `server/render.yaml`을 **프로젝트 루트**로 복사하거나,
    아래 내용으로 루트에 `render.yaml` 생성:
-   ```yaml
-   services:
-     - type: web
-       name: tower-defense-backend
-       runtime: docker
-       dockerfilePath: server/Dockerfile
-       plan: starter
-       region: singapore
-       envVars:
-         - key: NODE_ENV
-           value: production
-         - key: PORT
-           value: "3000"
-         - key: CORS_ORIGINS
-           sync: false
-         - key: TOSS_SECRET_KEY
-           sync: false
-       disk:
-         name: tower-defense-data
-         mountPath: /app/server/data
-         sizeGB: 1
-   ```
+   저장소 루트의 `render.yaml`이 자동 감지됩니다 (현재 `plan: free` 설정).
 2. [dashboard.render.com](https://dashboard.render.com) → New → Blueprint
 3. 저장소 연결 → 자동 배포
 
