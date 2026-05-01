@@ -10,15 +10,14 @@ FROM node:20-alpine
 WORKDIR /app/server
 
 # Install dependencies first (layer caching)
-COPY package*.json ./
+# Build context is repo root; server/ prefix required for all server files
+COPY server/package*.json ./
 RUN npm ci --omit=dev
 
 # Copy server source
-COPY src/ ./src/
+COPY server/src/ ./src/
 
 # Copy game static files to /app (parent of server dir)
-# Build context must be project root (../) for this to work.
-# See README-DEPLOY.md for build instructions.
 COPY index.html game.js style.css config.js /app/
 
 # Create data directory for SQLite
