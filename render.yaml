@@ -5,7 +5,7 @@ services:
     # Dockerfile lives in server/; build context is the repo root
     # so static files (index.html, game.js, style.css) are accessible.
     dockerfilePath: server/Dockerfile
-    # rootDirectory should be the repo root (default when not set)
+    dockerContext: .  # Build context = repo root (needed for COPY index.html game.js style.css config.js)
     plan: free  # 무료 티어 — 재배포 시 리더보드 데이터 초기화됨
     region: singapore  # Closest to Korea; alternatives: ohio, frankfurt
     envVars:
